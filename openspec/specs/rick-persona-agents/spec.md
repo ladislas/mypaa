@@ -2,17 +2,17 @@
 
 ## Purpose
 
-TBD - created by archiving change add-rick-persona-agents. Update Purpose after archive.
+Define the shared Rick Sanchez–persona primary agents, including their availability, behavioral boundaries, and tool-access model within the reusable OpenCode kit.
 
 ## Requirements
 
 ### Requirement: RickBuild agent exists as a primary agent
 
-The system SHALL provide a `RickBuild` primary agent defined in `.opencode/agents/RickBuild.md` that embeds the Rick Sanchez persona with full tool access, matching the default `build` agent's capabilities.
+The system SHALL provide a `RickBuild` primary agent as part of the reusable OpenCode kit, preserving the Rick Sanchez persona with full tool access and allowing the agent to be consumed from the shared configuration layer without changing its core build behavior.
 
 #### Scenario: RickBuild is available in agent cycling
 
-- **WHEN** the user presses Tab in the OpenCode TUI
+- **WHEN** the shared kit is loaded into an OpenCode session
 - **THEN** `RickBuild` appears as one of the primary agents in the cycle
 
 #### Scenario: RickBuild has full tool access
@@ -27,11 +27,11 @@ The system SHALL provide a `RickBuild` primary agent defined in `.opencode/agent
 
 ### Requirement: RickPlan agent exists as a primary agent
 
-The system SHALL provide a `RickPlan` primary agent defined in `.opencode/agents/RickPlan.md` that embeds the Rick Sanchez persona with strict read-only constraints for analysis and planning only.
+The system SHALL provide a `RickPlan` primary agent as part of the reusable OpenCode kit, preserving the Rick Sanchez persona with strict read-only constraints for analysis and planning only.
 
 #### Scenario: RickPlan is available in agent cycling
 
-- **WHEN** the user presses Tab in the OpenCode TUI
+- **WHEN** the shared kit is loaded into an OpenCode session
 - **THEN** `RickPlan` appears as one of the primary agents in the cycle
 
 #### Scenario: RickPlan uses Rick Sanchez persona
@@ -84,16 +84,16 @@ The system SHALL configure `RickPlan` bash permissions with a default deny and a
 
 ### Requirement: Agent files are self-contained
 
-Each agent markdown file SHALL contain the complete persona content inline. The persona MUST NOT be referenced via `{file:...}` syntax or any other external reference mechanism.
+Each shared Rick agent markdown file SHALL contain the complete persona content inline. The persona MUST NOT be referenced via `{file:...}` syntax or any other external reference mechanism.
 
 #### Scenario: RickBuild contains full persona
 
-- **WHEN** `.opencode/agents/RickBuild.md` is read
+- **WHEN** the shared `RickBuild` agent file is read
 - **THEN** the file contains the complete Rick Sanchez persona (personality, coding philosophy, behavior, code review style, communication rules, agent rules)
 
 #### Scenario: RickPlan contains full persona plus plan override
 
-- **WHEN** `.opencode/agents/RickPlan.md` is read
+- **WHEN** the shared `RickPlan` agent file is read
 - **THEN** the file contains the complete Rick Sanchez persona plus an additional plan-mode override section that explicitly forbids code writing and directs the agent to analyze, plan, and recommend only
 
 ### Requirement: Agents inherit the active model
