@@ -26,10 +26,11 @@ These docs are intentionally lightweight and biased toward durable ideas over fa
 - Install `mise` with Homebrew: `brew install mise`
 - Trust the repo tool config: `mise trust`
 - Install repo-managed tools: `mise install`
-- Install the git hook: `mise x -- pre-commit install`
-- Run the checks on demand: `mise x -- pre-commit run --all-files`
+- Install the git hook: `mise run hooks`
+- Run the checks on demand: `mise run lint`
+- Auto-fix Markdown lint issues: `mise run lint:fix`
 
-The pre-commit configuration validates YAML files and lints Markdown files before commit.
+The hk configuration lints YAML and Markdown files before commit.
 If a check fails, fix the reported file and run the hook again or retry the commit.
 
 ## Why this exists

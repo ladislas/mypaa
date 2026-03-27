@@ -1,10 +1,4 @@
-# content-precommit-validation Specification
-
-## Purpose
-
-Validate repository YAML and Markdown content during pre-commit so invalid or non-compliant files are rejected before commit.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Repository validates YAML before commit
 
@@ -21,15 +15,6 @@ The repository SHALL define a versioned `hk` hook configuration that validates Y
 - **WHEN** a contributor runs a commit that includes an invalid or non-compliant `.yaml` or `.yml` file
 - **THEN** the `hk` validation fails before the commit is created
 - **AND** the failure output identifies the file so the contributor can fix it
-
-### Requirement: YAML validation covers repository YAML file extensions
-
-The repository SHALL configure YAML validation for both `.yaml` and `.yml` files managed in the repository.
-
-#### Scenario: Repository uses either YAML extension
-
-- **WHEN** a contributor stages changes to files ending in `.yaml` or `.yml`
-- **THEN** those files are included in YAML validation by the pre-commit workflow
 
 ### Requirement: Repository lints Markdown before commit
 

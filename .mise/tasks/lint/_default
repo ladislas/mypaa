@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Run Markdown and YAML checks"
+set -euo pipefail
+
+mise run lint:markdown
+mise run lint:yaml

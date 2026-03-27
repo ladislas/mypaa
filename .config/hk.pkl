@@ -1,0 +1,32 @@
+amends "package://github.com/jdx/hk/releases/download/v1.38.0/hk@1.38.0#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v1.38.0/hk@1.38.0#/Builtins.pkl"
+
+hooks {
+    ["pre-commit"] {
+        fix = true
+        stash = "git"
+        steps {
+            ["markdownlint-cli2"] {
+                glob = List("**/*.md")
+                check = "markdownlint-cli2 {{files}}"
+                fix = "markdownlint-cli2 --fix {{files}}"
+            }
+            ["yamllint"] {
+                glob = List("**/*.yml", "**/*.yaml")
+                check = "yamllint -c .yamllint.yaml {{files}}"
+            }
+            ["check-added-large-files"] = Builtins.check_added_large_files
+            ["check-case-conflict"] = Builtins.check_case_conflict
+            ["check-executables-have-shebangs"] = Builtins.check_executables_have_shebangs
+            ["check-merge-conflict"] = Builtins.check_merge_conflict
+            ["check-symlinks"] = Builtins.check_symlinks
+            ["detect-private-key"] = Builtins.detect_private_key
+            ["mixed-line-ending"] = Builtins.mixed_line_ending
+            ["no-commit-to-branch"] = (Builtins.no_commit_to_branch) {
+                check = "hk util no-commit-to-branch --branch main"
+            }
+            ["trailing-whitespace"] = Builtins.trailing_whitespace
+            ["end-of-file-fixer"] = Builtins.newlines
+        }
+    }
+}
