@@ -1,9 +1,9 @@
-# mypaa
+# mypac
 
-**mypaa** stands for **My Personal AI Agent**.
+**mypac** stands for **My Personal AI Config**.
 
 This repository is my personal lab for building an AI-native way of working.
-I use it to collect knowledge, configs, prompts, and experiments from my agentic journey.
+I use it to collect knowledge, configs, prompts, and experiments for my personal AI workflow.
 
 ## What lives here
 
