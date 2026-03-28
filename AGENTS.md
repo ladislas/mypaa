@@ -12,6 +12,11 @@ Example: `🎉 (git): Initial commit`
 
 Use the `gitmoji` CLI to find the right emoji: `gitmoji list`
 
+- Create atomic commits during implementation, not only at the end of a change.
+- Use one coherent commit per meaningful task group or work slice once that slice is complete and verified.
+- Do not create one commit per file or tiny checkbox, and do not batch unrelated work into one large commit.
+- Select the file list for each commit explicitly; if unrelated files are already staged, leave them out of the current commit.
+
 ## Git Workflow
 
 ### Branch Naming
@@ -41,4 +46,6 @@ Always create a branch — keep `main` clean.
 
 - Use OpenSpec in this repo for meaningful multi-step work, not for tiny obvious edits.
 - Commit meaningful OpenSpec artifacts under `openspec/` when they preserve rationale and review context.
+- For OpenSpec changes, prefer one atomic commit per meaningful numbered task section once that section is complete and verified.
+- For non-OpenSpec work, follow the same atomic-commit rule using coherent manual task groups.
 - Keep the human in the loop: proposal, design, specs, and tasks should guide implementation rather than replace review and manual judgment.

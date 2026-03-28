@@ -16,4 +16,8 @@ Do NOT suggest or create configurations for vendor-specific CLIs (Claude Code, C
 - Use OpenSpec for non-trivial features, refactors, migrations, and ambiguous bugfixes.
 - Skip OpenSpec for tiny obvious edits that do not benefit from proposal/spec/task artifacts.
 - Commit meaningful OpenSpec artifacts when they preserve rationale, review context, or implementation history.
+- Commit implementation work during the change, not only at the end.
+- Use one atomic commit per meaningful task group or work slice once it is complete and verified.
+- Do not create one commit per tiny checkbox or file, and do not batch unrelated work into one large commit.
+- Select commit files explicitly; if unrelated files are already staged, leave them out of the current commit.
 - Keep the human in the loop: treat OpenSpec as a scaffold for planning and review, not a fire-and-forget implementation engine.

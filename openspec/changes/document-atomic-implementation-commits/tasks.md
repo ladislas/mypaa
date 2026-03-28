@@ -1,7 +1,7 @@
 ## 1. Update the workflow contract
 
-- [ ] 1.1 Update the `ai-workflow-conventions` delta spec so atomic implementation commits and explicit file selection are part of the repository contract
-- [ ] 1.2 Update repository-level guidance (`AGENTS.md`, `.opencode/AGENTS.md`, and `docs/playbooks/openspec.md`) to apply the same atomic commit rule to both OpenSpec and manual work
+- [x] 1.1 Update the `ai-workflow-conventions` delta spec so atomic implementation commits and explicit file selection are part of the repository contract
+- [x] 1.2 Update repository-level guidance (`AGENTS.md`, `.opencode/AGENTS.md`, and `docs/playbooks/openspec.md`) to apply the same atomic commit rule to both OpenSpec and manual work
 
 ## 2. Align OpenSpec implementation guidance
 
