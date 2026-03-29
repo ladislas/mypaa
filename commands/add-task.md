@@ -23,9 +23,11 @@ Task description (if any): $ARGUMENTS
 
 2. **Ensure the `needs triage` label exists**
    - If the label list output is empty (`[]`), create it:
+
      ```
      gh label create "needs triage" --description "Issue needs review and prioritization" --color "FBCA04"
      ```
+
    - If it already exists, continue.
 
 3. **Get task input**
@@ -42,9 +44,11 @@ Task description (if any): $ARGUMENTS
    If the task is simple:
    - Use the description as the issue title
    - Create the issue with an empty body:
+
      ```
      gh issue create --title "<title>" --label "needs triage" --body ""
      ```
+
    - Report the created issue URL to the user
 
 6. **Larger task path**
@@ -73,9 +77,11 @@ Task description (if any): $ARGUMENTS
      ```
 
    - Create the issue:
+
      ```
      gh issue create --title "<title>" --label "needs triage" --body "<body>"
      ```
+
    - Report the created issue URL to the user
 
 7. **Confirm result**
