@@ -2,17 +2,17 @@
 
 ### Requirement: RickPlan SHALL NOT modify files
 
-The system SHALL deny file-modifying actions for `RickPlan` through runtime-enforced tool restrictions in addition to prompt guidance. Mutation-capable tools such as edit, write, and patch MUST NOT execute for the agent.
+The system SHALL deny file-modifying actions for `RickPlan` through OpenCode native permission frontmatter (`edit: deny`) in the agent definition. Prompt guidance reinforces the boundary; the platform enforces it.
 
 #### Scenario: RickPlan cannot edit files
 
 - **WHEN** `RickPlan` attempts to use the edit tool
-- **THEN** the tool execution is denied by runtime policy
+- **THEN** the tool execution is denied by the agent permission configuration
 
 #### Scenario: RickPlan cannot write new files
 
 - **WHEN** `RickPlan` attempts to use file-creation or file-writing tools
-- **THEN** the tool execution is denied by runtime policy
+- **THEN** the tool execution is denied by the agent permission configuration
 
 #### Scenario: RickPlan prompt reinforces no-code policy
 
@@ -21,7 +21,7 @@ The system SHALL deny file-modifying actions for `RickPlan` through runtime-enfo
 
 ### Requirement: RickPlan bash access is restricted to exploration and scoped GitHub issue commands
 
-The system SHALL configure `RickPlan` shell access through an explicit runtime allow-list for read-only exploration commands, OpenSpec commands, and scoped GitHub issue workflows. Shell commands outside that allow-list MUST be denied by runtime policy.
+The system SHALL configure `RickPlan` shell access through an explicit OpenCode native permission allow-list for read-only exploration commands, OpenSpec commands, and scoped GitHub issue workflows. Shell commands outside that allow-list are denied by the platform.
 
 #### Scenario: RickPlan can run git commands
 
@@ -51,7 +51,7 @@ The system SHALL configure `RickPlan` shell access through an explicit runtime a
 #### Scenario: RickPlan cannot run arbitrary commands
 
 - **WHEN** `RickPlan` attempts to run a shell command outside the allow-list
-- **THEN** the command is denied by runtime policy
+- **THEN** the command is denied by the agent permission configuration
 
 ## ADDED Requirements
 

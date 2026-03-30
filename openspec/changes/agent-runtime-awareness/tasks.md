@@ -8,13 +8,13 @@
 
 - [x] 2.1 Inject compact synthetic runtime context that announces current agent, real handoff context when applicable, and active model
 - [x] 2.2 Add handoff framing that tells the active agent to treat prior assistant outputs as historical messages rather than current identity
-- [x] 2.3 Expose a runtime introspection tool that returns current agent, previous agent, active model, and policy classification
+- [x] 2.3 Expose a runtime introspection tool that returns current agent, previous agent, and active model
 
-## 3. Enforcement and agent alignment
+## 3. Agent alignment
 
-- [x] 3.1 Implement tool-execution policy checks that deny file mutation for non-build agents
-- [x] 3.2 Implement shell allow/deny enforcement so non-build agents cannot execute arbitrary implementation commands
-- [x] 3.3 Update Rick persona agent definitions and related docs so prompt guidance matches the new runtime-enforced boundaries
+- [ ] 3.1 ~~Implement tool-execution policy checks that deny file mutation for non-build agents~~ — dropped; OpenCode native permission frontmatter handles this at the platform level
+- [ ] 3.2 ~~Implement shell allow/deny enforcement so non-build agents cannot execute arbitrary implementation commands~~ — dropped; bespoke shell parser is fragile and redundant with frontmatter
+- [x] 3.3 Update Rick persona agent definitions and related docs so prompt guidance matches native permission-frontmatter boundaries
 
 ## 4. Verification
 
