@@ -6,9 +6,9 @@
 
 ## 2. Synthetic context and introspection
 
-- [ ] 2.1 Inject compact synthetic runtime context that announces current agent, real handoff context when applicable, and active model
-- [ ] 2.2 Add handoff framing that tells the active agent to treat prior assistant outputs as historical messages rather than current identity
-- [ ] 2.3 Expose a runtime introspection tool that returns current agent, previous agent, active model, and policy classification
+- [x] 2.1 Inject compact synthetic runtime context that announces current agent, real handoff context when applicable, and active model
+- [x] 2.2 Add handoff framing that tells the active agent to treat prior assistant outputs as historical messages rather than current identity
+- [x] 2.3 Expose a runtime introspection tool that returns current agent, previous agent, active model, and policy classification
 
 ## 3. Enforcement and agent alignment
 
