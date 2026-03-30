@@ -117,7 +117,9 @@ function classifyPolicy(agent?: string): PolicyClassification {
 
 function getPolicyAgent(sessionID: string) {
   const state = ensureSessionState(sessionID);
-  return normalizeAgent(state.currentAgent) || normalizeAgent(state.lastEffectiveAgent);
+  // Prefer lastEffectiveAgent (set only on confirmed chat.message turns) so
+  // transient chat.params picker changes cannot poison the enforcement policy.
+  return normalizeAgent(state.lastEffectiveAgent) || normalizeAgent(state.currentAgent);
 }
 
 function getPolicySummary(agent?: string) {
