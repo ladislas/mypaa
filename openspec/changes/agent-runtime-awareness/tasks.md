@@ -14,7 +14,7 @@
 
 - [ ] 3.1 ~~Implement tool-execution policy checks that deny file mutation for non-build agents~~ — dropped; OpenCode native permission frontmatter handles this at the platform level
 - [ ] 3.2 ~~Implement shell allow/deny enforcement so non-build agents cannot execute arbitrary implementation commands~~ — dropped; bespoke shell parser is fragile and redundant with frontmatter
-- [ ] 3.3 Update Rick persona agent definitions and related docs so prompt guidance matches native permission-frontmatter boundaries
+- [x] 3.3 Update Rick persona agent definitions and related docs so prompt guidance matches native permission-frontmatter boundaries
 
 ## 4. Verification
 
