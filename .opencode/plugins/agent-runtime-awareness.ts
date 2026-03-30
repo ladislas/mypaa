@@ -17,6 +17,15 @@ type SessionRuntimeState = {
 
 type PolicyClassification = "build" | "non-build" | "unknown";
 
+type AgentLike =
+  | string
+  | {
+      name?: string;
+      id?: string;
+    }
+  | null
+  | undefined;
+
 const runtimeStateBySession = new Map<string, SessionRuntimeState>();
 const BUILD_AGENTS = new Set(["RickBuild", "build"]);
 const MUTATION_TOOL_IDS = new Set(["edit", "write", "patch", "apply_patch"]);
@@ -62,6 +71,33 @@ function touchState(state: SessionRuntimeState) {
   state.updatedAt = new Date().toISOString();
 }
 
+function normalizeAgent(agent: AgentLike) {
+  if (typeof agent === "string") {
+    const normalized = agent.trim();
+    return normalized || undefined;
+  }
+
+  if (!agent || typeof agent !== "object") {
+    return undefined;
+  }
+
+  if (typeof agent.name === "string") {
+    const normalized = agent.name.trim();
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  if (typeof agent.id === "string") {
+    const normalized = agent.id.trim();
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return undefined;
+}
+
 function applyRuntimeAgent(state: SessionRuntimeState, agent: string) {
   const lastEffectiveAgent = state.lastEffectiveAgent;
 
@@ -70,16 +106,17 @@ function applyRuntimeAgent(state: SessionRuntimeState, agent: string) {
 }
 
 function classifyPolicy(agent?: string): PolicyClassification {
-  if (!agent?.trim()) {
+  const normalizedAgent = normalizeAgent(agent);
+  if (!normalizedAgent) {
     return "unknown";
   }
 
-  return BUILD_AGENTS.has(agent) ? "build" : "non-build";
+  return BUILD_AGENTS.has(normalizedAgent) ? "build" : "non-build";
 }
 
 function getPolicyAgent(sessionID: string) {
   const state = ensureSessionState(sessionID);
-  return state.currentAgent?.trim() || state.lastEffectiveAgent?.trim();
+  return normalizeAgent(state.currentAgent) || normalizeAgent(state.lastEffectiveAgent);
 }
 
 function getPolicySummary(agent?: string) {
@@ -136,7 +173,7 @@ function getRuntimeSnapshot(sessionID: string) {
 }
 
 function buildSyntheticRuntimeContext(state: SessionRuntimeState) {
-  const currentAgent = state.currentAgent?.trim() || state.lastEffectiveAgent?.trim();
+  const currentAgent = normalizeAgent(state.currentAgent) || normalizeAgent(state.lastEffectiveAgent);
   if (!currentAgent) {
     return;
   }
@@ -164,12 +201,12 @@ function buildSyntheticRuntimeContext(state: SessionRuntimeState) {
 
 function recordEffectiveTurn(input: {
   sessionID: string;
-  agent?: string;
+  agent?: AgentLike;
   messageID?: string;
   model?: { providerID: string; modelID: string };
 }) {
   const state = ensureSessionState(input.sessionID);
-  const agent = input.agent?.trim();
+  const agent = normalizeAgent(input.agent);
 
   if (agent) {
     applyRuntimeAgent(state, agent);
@@ -186,13 +223,15 @@ function recordEffectiveTurn(input: {
 
 function refreshActiveRuntime(input: {
   sessionID: string;
-  agent?: string;
+  agent?: AgentLike;
   model?: { providerID: string; id: string };
 }) {
   const state = ensureSessionState(input.sessionID);
 
-  if (input.agent?.trim()) {
-    applyRuntimeAgent(state, input.agent.trim());
+  const agent = normalizeAgent(input.agent);
+
+  if (agent) {
+    applyRuntimeAgent(state, agent);
   }
 
   setActiveModel(state, input.model);
