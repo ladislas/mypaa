@@ -9,6 +9,8 @@ metadata:
   generatedBy: "1.2.0"
 ---
 
+# Archive a completed change
+
 Archive a completed change in the experimental workflow.
 
 ## Input

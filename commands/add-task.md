@@ -2,6 +2,8 @@
 description: Quickly capture a GitHub issue in the current repository for future triage
 ---
 
+# Capture a GitHub task
+
 Capture a task as a GitHub issue in the current repository. Every issue gets the `needs triage` label.
 
 ## Current state

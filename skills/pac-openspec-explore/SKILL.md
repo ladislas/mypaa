@@ -9,6 +9,8 @@ metadata:
   generatedBy: "1.2.0"
 ---
 
+# Enter explore mode
+
 Enter explore mode. Think deeply. Visualize freely. Follow the conversation wherever it goes.
 
 ## Guardrail

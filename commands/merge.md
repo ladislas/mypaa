@@ -4,6 +4,8 @@ subtask: true
 model: anthropic/claude-haiku-4-5-20251001
 ---
 
+# Merge the current branch
+
 Merge the current branch using the correct strategy based on whether a PR exists.
 
 ## Current state
