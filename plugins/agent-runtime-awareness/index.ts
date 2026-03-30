@@ -30,8 +30,34 @@ const MAX_TRACKED_SESSIONS = 1000;
 const BUILD_AGENTS = new Set(["RickBuild", "build"]);
 const MUTATION_TOOL_IDS = new Set(["edit", "write", "patch", "apply_patch"]);
 const SHELL_TOOL_IDS = new Set(["bash", "shell"]);
-const SHELL_CONTROL_OPERATORS = /(?:^|[^\\])(?:&&|\|\||;|\||>|<|\n|\r)/;
 const SHELL_COMMAND_SUBSTITUTION = /`|\$\(/;
+const SHELL_VARIABLE_EXPANSION = /\$\{?[A-Za-z_]/;
+
+/**
+ * Returns true if the command string contains a shell control operator that is
+ * not escaped (i.e. preceded by an odd number of backslashes). A double-escape
+ * like \\; means a literal backslash followed by a live semicolon operator and
+ * must be rejected.
+ */
+function hasLiveControlOperator(command: string): boolean {
+  const matches = command.matchAll(/&&|\|\||[;|><\n\r]/g);
+  for (const match of matches) {
+    const offset = match.index ?? 0;
+    let backslashCount = 0;
+    let cursor = offset - 1;
+    while (cursor >= 0 && command[cursor] === "\\") {
+      backslashCount += 1;
+      cursor -= 1;
+    }
+    // Odd count means the operator itself is escaped — skip it.
+    // Even count (including zero) means a literal backslash (or none) precedes
+    // the operator, so the operator is live.
+    if (backslashCount % 2 === 0) {
+      return true;
+    }
+  }
+  return false;
+}
 
 function pruneSessionState() {
   if (runtimeStateBySession.size < MAX_TRACKED_SESSIONS) {
@@ -213,7 +239,22 @@ function tokenizeShellCommand(command: string) {
 }
 
 function isAllowedNonBuildShellCommand(command: string) {
-  if (!command || SHELL_CONTROL_OPERATORS.test(command) || SHELL_COMMAND_SUBSTITUTION.test(command)) {
+  if (!command) {
+    return false;
+  }
+
+  // Reject command substitution: $(…) and backtick form.
+  if (SHELL_COMMAND_SUBSTITUTION.test(command)) {
+    return false;
+  }
+
+  // Reject variable expansion: $VAR and ${VAR} can inject arbitrary arguments.
+  if (SHELL_VARIABLE_EXPANSION.test(command)) {
+    return false;
+  }
+
+  // Reject live control operators, accounting for even-count backslash escapes.
+  if (hasLiveControlOperator(command)) {
     return false;
   }
 
