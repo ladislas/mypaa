@@ -11,7 +11,6 @@ type SessionRuntimeState = {
   lastEffectiveAgent?: string;
   previousAgent?: string;
   activeModel?: ModelMetadata;
-  effectiveTurnMessageID?: string;
   updatedAt?: string;
 };
 
@@ -89,11 +88,9 @@ function normalizeAgent(agent: AgentLike) {
   return undefined;
 }
 
-function applyRuntimeAgent(state: SessionRuntimeState, agent: string) {
-  const lastEffectiveAgent = state.lastEffectiveAgent;
-
+function setCurrentAgent(state: SessionRuntimeState, agent: string) {
   state.currentAgent = agent;
-  state.previousAgent = lastEffectiveAgent && lastEffectiveAgent !== agent ? lastEffectiveAgent : undefined;
+  state.previousAgent = state.lastEffectiveAgent && state.lastEffectiveAgent !== agent ? state.lastEffectiveAgent : undefined;
 }
 
 function classifyPolicy(agent?: string): PolicyClassification {
@@ -286,23 +283,14 @@ function buildSyntheticRuntimeContext(state: SessionRuntimeState) {
 function recordEffectiveTurn(input: {
   sessionID: string;
   agent?: AgentLike;
-  messageID?: string;
   model?: { providerID: string; modelID: string };
 }) {
   const state = ensureSessionState(input.sessionID);
   const agent = normalizeAgent(input.agent);
-  const priorEffectiveAgent = normalizeAgent(state.currentAgent) || normalizeAgent(state.lastEffectiveAgent);
-
-  if (priorEffectiveAgent) {
-    state.lastEffectiveAgent = priorEffectiveAgent;
-  }
 
   if (agent) {
-    applyRuntimeAgent(state, agent);
-  }
-
-  if (input.messageID) {
-    state.effectiveTurnMessageID = input.messageID;
+    setCurrentAgent(state, agent);
+    state.lastEffectiveAgent = agent;
   }
 
   setActiveModel(state, input.model);
@@ -319,7 +307,7 @@ function refreshActiveRuntime(input: {
   const agent = normalizeAgent(input.agent);
 
   if (agent) {
-    applyRuntimeAgent(state, agent);
+    setCurrentAgent(state, agent);
   }
 
   setActiveModel(state, input.model);
