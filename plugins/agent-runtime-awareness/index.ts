@@ -26,15 +26,28 @@ type AgentLike =
   | undefined;
 
 const runtimeStateBySession = new Map<string, SessionRuntimeState>();
+const MAX_TRACKED_SESSIONS = 1000;
 const BUILD_AGENTS = new Set(["RickBuild", "build"]);
 const MUTATION_TOOL_IDS = new Set(["edit", "write", "patch", "apply_patch"]);
 const SHELL_TOOL_IDS = new Set(["bash", "shell"]);
 const SHELL_CONTROL_OPERATORS = /(?:^|[^\\])(?:&&|\|\||;|\||>|<|\n|\r)/;
 const SHELL_COMMAND_SUBSTITUTION = /`|\$\(/;
 
+function pruneSessionState() {
+  if (runtimeStateBySession.size < MAX_TRACKED_SESSIONS) {
+    return;
+  }
+
+  const oldestSession = runtimeStateBySession.entries().next().value?.[0];
+  if (oldestSession) {
+    runtimeStateBySession.delete(oldestSession);
+  }
+}
+
 function ensureSessionState(sessionID: string) {
   let state = runtimeStateBySession.get(sessionID);
   if (!state) {
+    pruneSessionState();
     state = {};
     runtimeStateBySession.set(sessionID, state);
   }
@@ -388,3 +401,5 @@ export const AgentRuntimeAwarenessPlugin: Plugin = async () => {
     },
   };
 };
+
+export default AgentRuntimeAwarenessPlugin;
