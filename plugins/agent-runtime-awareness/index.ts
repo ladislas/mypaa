@@ -14,7 +14,7 @@ type SessionRuntimeState = {
   updatedAt?: string;
 };
 
-type PolicyClassification = "build" | "non-build" | "unknown";
+type PolicyClassification = "build" | "non-build";
 
 type AgentLike =
   | string
@@ -26,7 +26,7 @@ type AgentLike =
   | undefined;
 
 const runtimeStateBySession = new Map<string, SessionRuntimeState>();
-const MAX_TRACKED_SESSIONS = 1000;
+const MAX_SESSIONS_BEFORE_PRUNE = 1000;
 const BUILD_AGENTS = new Set(["RickBuild", "build"]);
 const MUTATION_TOOL_IDS = new Set(["edit", "write", "patch", "apply_patch"]);
 const SHELL_TOOL_IDS = new Set(["bash", "shell"]);
@@ -60,7 +60,7 @@ function hasLiveControlOperator(command: string): boolean {
 }
 
 function pruneSessionState() {
-  if (runtimeStateBySession.size < MAX_TRACKED_SESSIONS) {
+  if (runtimeStateBySession.size < MAX_SESSIONS_BEFORE_PRUNE) {
     return;
   }
 
@@ -155,10 +155,10 @@ function getPolicySummary(agent?: string) {
   };
 }
 
-function denyToolExecution(tool: string, agent?: string, reason?: string): never {
+function denyToolExecution(toolID: string, agent?: string, reason?: string): never {
   const summary = getPolicySummary(agent);
   const details = [
-    `Tool '${tool}' is denied for non-build agent '${summary.agent ?? "unknown"}'.`,
+    `Tool '${toolID}' is denied for non-build agent '${summary.agent ?? "unknown"}'.`,
     reason,
     "Switch to RickBuild or build for implementation work.",
   ]
