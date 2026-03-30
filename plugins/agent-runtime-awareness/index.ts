@@ -406,6 +406,10 @@ export const AgentRuntimeAwarenessPlugin: Plugin = async () => {
       }
 
       output.system.push(runtimeContext);
+
+      // Clear previousAgent after the handoff frame has been injected once.
+      // Subsequent turns with the same effective agent must not repeat the notice.
+      state.previousAgent = undefined;
     },
     "tool.execute.before": async (input, output) => {
       const agent = getPolicyAgent(input.sessionID);
