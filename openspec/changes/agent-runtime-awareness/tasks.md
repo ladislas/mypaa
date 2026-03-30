@@ -12,9 +12,9 @@
 
 ## 3. Enforcement and agent alignment
 
-- [ ] 3.1 Implement tool-execution policy checks that deny file mutation for non-build agents
-- [ ] 3.2 Implement shell allow/deny enforcement so non-build agents cannot execute arbitrary implementation commands
-- [ ] 3.3 Update Rick persona agent definitions and related docs so prompt guidance matches the new runtime-enforced boundaries
+- [x] 3.1 Implement tool-execution policy checks that deny file mutation for non-build agents
+- [x] 3.2 Implement shell allow/deny enforcement so non-build agents cannot execute arbitrary implementation commands
+- [x] 3.3 Update Rick persona agent definitions and related docs so prompt guidance matches the new runtime-enforced boundaries
 
 ## 4. Verification
 

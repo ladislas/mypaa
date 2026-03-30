@@ -30,6 +30,7 @@ Manual shell exports remain useful as compatibility context, but they are not th
 - This repository's local OpenCode runtime wiring lives under `.opencode/`.
 - The local config entrypoint is `.opencode/opencode.json`.
 - Project-local plugins are auto-loaded from `.opencode/plugins/` when running the repo through `mise run opencode` or any equivalent `OPENCODE_CONFIG_DIR=/path/to/mypac opencode ...` workflow.
+- The runtime-awareness plugin in `.opencode/plugins/agent-runtime-awareness.ts` enforces the shared agent boundary: `RickBuild` keeps normal implementation access, while non-build agents such as `RickPlan` stay read-only and are limited to analysis shell workflows.
 - Local plugin dependencies belong in `.opencode/package.json`.
 - After adding or changing local plugin dependencies, run `bun install` in `.opencode/` so OpenCode can resolve those imports at startup.
 

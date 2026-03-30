@@ -18,6 +18,20 @@ type SessionRuntimeState = {
 type PolicyClassification = "build" | "non-build" | "unknown";
 
 const runtimeStateBySession = new Map<string, SessionRuntimeState>();
+const BUILD_AGENTS = new Set(["RickBuild", "build"]);
+const MUTATION_TOOL_IDS = new Set(["edit", "write", "patch", "apply_patch"]);
+const SHELL_TOOL_IDS = new Set(["bash", "shell"]);
+const NON_BUILD_ALLOWED_SHELL_PATTERNS = [
+  /^git\s+(status|diff|log|show|branch|rev-parse|ls-files)\b/,
+  /^(grep|rg)\b/,
+  /^(ls|head|tail|wc|file|tree)\b/,
+  /^openspec\b/,
+  /^gh\s+auth\s+status\b/,
+  /^gh\s+repo\s+view\b/,
+  /^gh\s+issue\s+(list|view|create|edit|close)\b/,
+  /^gh\s+label\s+list\b/,
+  /^gh\s+label\s+create\s+"needs triage"\b/,
+];
 
 function ensureSessionState(sessionID: string) {
   let state = runtimeStateBySession.get(sessionID);
@@ -60,17 +74,64 @@ function classifyPolicy(agent?: string): PolicyClassification {
     return "unknown";
   }
 
-  return agent === "RickBuild" || agent === "build" ? "build" : "non-build";
+  return BUILD_AGENTS.has(agent) ? "build" : "non-build";
+}
+
+function getPolicyAgent(sessionID: string) {
+  const state = ensureSessionState(sessionID);
+  return state.currentAgent?.trim() || state.lastEffectiveAgent?.trim();
+}
+
+function getPolicySummary(agent?: string) {
+  return {
+    agent: agent ?? null,
+    policyClassification: classifyPolicy(agent),
+  };
+}
+
+function denyToolExecution(tool: string, agent?: string, reason?: string): never {
+  const summary = getPolicySummary(agent);
+  const details = [
+    `Tool '${tool}' is denied for non-build agent '${summary.agent ?? "unknown"}'.`,
+    reason,
+    "Switch to RickBuild or build for implementation work.",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  throw new Error(details);
+}
+
+function getShellCommand(args: unknown) {
+  if (!args || typeof args !== "object") {
+    return undefined;
+  }
+
+  if ("command" in args && typeof args.command === "string") {
+    return args.command.trim();
+  }
+
+  if ("cmd" in args && typeof args.cmd === "string") {
+    return args.cmd.trim();
+  }
+
+  return undefined;
+}
+
+function isAllowedNonBuildShellCommand(command: string) {
+  return NON_BUILD_ALLOWED_SHELL_PATTERNS.some((pattern) => pattern.test(command));
 }
 
 function getRuntimeSnapshot(sessionID: string) {
   const state = ensureSessionState(sessionID);
+  const policyAgent = getPolicyAgent(sessionID);
 
   return {
     currentAgent: state.currentAgent ?? null,
     previousAgent: state.previousAgent ?? null,
     activeModel: state.activeModel ?? null,
-    policyClassification: classifyPolicy(state.currentAgent),
+    policyAgent: policyAgent ?? null,
+    policyClassification: classifyPolicy(policyAgent),
   };
 }
 
@@ -174,6 +235,41 @@ export const AgentRuntimeAwarenessPlugin: Plugin = async () => {
       }
 
       output.system.push(runtimeContext);
+    },
+    "tool.execute.before": async (input, output) => {
+      const agent = getPolicyAgent(input.sessionID);
+      if (classifyPolicy(agent) !== "non-build") {
+        return;
+      }
+
+      if (MUTATION_TOOL_IDS.has(input.tool)) {
+        denyToolExecution(
+          input.tool,
+          agent,
+          "Non-build agents are read-only and cannot mutate files.",
+        );
+      }
+
+      if (!SHELL_TOOL_IDS.has(input.tool)) {
+        return;
+      }
+
+      const command = getShellCommand(output.args);
+      if (!command) {
+        denyToolExecution(
+          input.tool,
+          agent,
+          "Shell access for non-build agents requires an explicit allowed analysis command.",
+        );
+      }
+
+      if (!isAllowedNonBuildShellCommand(command)) {
+        denyToolExecution(
+          input.tool,
+          agent,
+          `Command '${command}' is outside the allowed analysis and scoped GitHub issue workflows.`,
+        );
+      }
     },
   };
 };
