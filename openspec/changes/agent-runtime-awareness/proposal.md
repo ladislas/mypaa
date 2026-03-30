@@ -22,6 +22,6 @@ Switching between `RickPlan`, `RickBuild`, and other primary agents currently re
 
 ## Impact
 
-- Affected code: local OpenCode plugin assets, shared agent definitions, and any supporting config needed to load project-local plugins.
+- Affected code: shared OpenCode plugin assets, shared agent definitions, and any supporting config needed to load the runtime-awareness plugin from the shared kit root.
 - Affected behavior: plan/build/review switching, contradictory review workflows, and multi-model agent awareness.
 - Dependencies: OpenCode local plugin hooks and existing agent metadata surfaced through runtime message/session context.

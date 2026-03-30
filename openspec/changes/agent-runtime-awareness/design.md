@@ -23,9 +23,9 @@ The proposed change stays local to this shared kit. Instead of depending on sepa
 
 ## Decisions
 
-### Use one integrated local plugin instead of multiple external plugins
+### Use one integrated shared-kit plugin instead of multiple external plugins
 
-The system will define a project-local plugin under `.opencode/plugins/` rather than loading external npm plugins. This keeps behavior inspectable, versioned with the shared kit, and easier to tailor to Rick-specific planning/build/review workflows.
+The system will define a shared-kit plugin under the repository-root `plugins/` directory rather than loading external npm plugins. This keeps behavior inspectable, versioned with the shared kit, and actually loadable when another repository consumes this kit through `OPENCODE_CONFIG_DIR`.
 
 **Alternatives considered:**
 
@@ -99,7 +99,7 @@ The enforcement should prefer explicit allow/deny rules by agent class or exact 
 
 ## Migration Plan
 
-1. Add the local integrated plugin and wire it into the repository's OpenCode plugin loading path.
+1. Add the integrated plugin under the shared-kit root and wire it into the repository's OpenCode plugin loading path.
 2. Update shared Rick agent definitions so their documented role boundaries align with runtime-enforced behavior.
 3. Verify plan/build/reviewer handoffs in local sessions, including model visibility and tool denials.
 4. Remove any redundant external plugin dependency if one was previously configured for the same behavior.
