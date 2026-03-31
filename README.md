@@ -30,6 +30,7 @@ It also doubles as a reusable OpenCode kit that can be loaded from other reposit
 - All review workflows are analysis only. They review in fresh delegated context by default and should not edit files or apply fixes.
 - Review packets are evidence-first: derive requested target, branch, base branch, diff source, and active OpenSpec change from observable context in that order, and keep unknowns explicit instead of guessing.
 - For maximum adversarial independence, prefer running `/pac-review-adversarial` in a fresh session.
+- When `/pac-review-mixed` runs in a single session, both lanes share the session model and run sequentially. This gives approximate independence — the adversarial lane does not receive the standard findings as explicit input, but session context is not fully isolated. A fresh session for the adversarial pass gives stronger independence than a single-session mixed run.
 - Adversarial review may prefer a command-level model route when configured, but the workflow must report route status as `honored`, `unavailable`, or `unknown` based on runtime evidence.
 - If the runtime cannot verify fresh delegation, parallel mixed-lane execution, or preferred routing, the review must report that degraded mode and lower confidence instead of implying the ideal path happened.
 

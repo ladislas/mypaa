@@ -132,4 +132,7 @@ Fresh delegated context is the default, but docs should also recommend running `
 ## Open Questions
 
 - Where should command-level adversarial model preference live if multiple runtimes expose different routing mechanisms?
+  **Resolved (v1):** Deferred. No preferred route is configured in v1. The adversarial command relies on fresh delegated context alone for independence. Routing differentiation is an extension point for a future slice when a reliable alternate route is available.
+
 - How opinionated should the mixed-review verdict be when the two lanes disagree strongly but neither found a clearly blocking issue?
+  **Resolved (v1):** Use `caution` when lanes disagree on severity or risk but neither asserts a blocking finding with evidence. Use `blocking` only when at least one lane explicitly flags a finding that should be resolved or disproven before shipping. Do not escalate to `blocking` on disagreement alone without a specific evidenced finding.

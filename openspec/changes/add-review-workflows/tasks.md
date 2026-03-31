@@ -17,6 +17,7 @@
 - [x] 3.1 Implement `/pac-review-adversarial` so it launches a fresh delegated subagent with adversarial review instructions
 - [x] 3.2 Ensure the adversarial workflow receives source change context but not prior standard-review findings as input
 - [x] 3.3 Configure command-level adversarial routing or preferred model selection, with clear fallback messaging when the preferred route is unavailable
+  <!-- v1 resolution: no alternate model route is configured; the command was previously set to the same default model (no differentiation). That model frontmatter has been removed. The command now explicitly reports preferred route status as `unavailable` and documents that adversarial independence relies on fresh delegated context alone. Routing differentiation is deferred to a future slice. -->
 
 ## 4. Mixed review workflow
 
