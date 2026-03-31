@@ -14,9 +14,9 @@ Run standard and adversarial reviews in parallel from the same normalized packet
 
 ## Instructions
 
-- Launch fresh delegated `standard` and `adversarial` review lanes in parallel.
-- Give both lanes the same normalized review target packet.
-- Do not pass either lane's findings into the other lane.
-- After both lane reports return, produce the shared mixed comparison and verdict.
-- If fresh delegation, parallel execution, or preferred adversarial routing cannot be verified, report that uncertainty explicitly and downgrade the final verdict accordingly: use `caution` when one guarantee is missing and `insufficient-context` when fresh delegation and parallel execution are both unverified.
+- Invoke `pac-reviewer-standard` and `pac-reviewer-adversarial` as named subagents in parallel via the Task tool from the same normalized packet.
+- Give both subagents the same normalized review target packet.
+- Do not pass either subagent's findings into the other subagent.
+- After both child sessions return their reports, produce the shared mixed comparison and verdict.
+- If either Task tool invocation cannot be confirmed as a fresh child session, or if parallel execution could not be achieved, report that explicitly and downgrade the final verdict: use `caution` when one guarantee is missing and `insufficient-context` when both fresh delegation and parallel execution are unverified.
 - Return analysis only.

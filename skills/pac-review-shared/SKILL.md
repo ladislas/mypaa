@@ -123,8 +123,8 @@ When mixed review completes, return the standard report, the adversarial report,
 - <evidence still missing after considering both reports, or `None noted.`>
 
 ### Execution Guarantees
-- Standard fresh delegation: <verified | unverified>
-- Adversarial fresh delegation: <verified | unverified>
+- Standard lane (`pac-reviewer-standard`) fresh delegation: <verified | unverified>
+- Adversarial lane (`pac-reviewer-adversarial`) fresh delegation: <verified | unverified>
 - Parallel lane execution: <verified | unverified>
 - Adversarial preferred route status: <honored | unavailable | unknown> when a preferred route is configured
 - Notes: <missing runtime proof, degraded execution caveats, or `No additional caveats.`>
@@ -153,7 +153,8 @@ Basis: <2-4 sentences explaining the synthesized judgment from both lanes>
 
 ## Degraded-Mode Rules
 
-- If the runtime cannot verify fresh delegation, say `Fresh delegation: unverified` and treat independence as weaker than the ideal path.
+- Standard and adversarial review lanes run as named subagents (`pac-reviewer-standard`, `pac-reviewer-adversarial`) invoked via the Task tool. Each invocation creates an isolated child session.
+- If a Task tool invocation cannot be confirmed as a fresh child session, say `Fresh delegation: unverified` and treat independence as weaker than the ideal path.
 - If mixed review cannot verify parallel lane execution, say so under `### Execution Guarantees` and lower the verdict: use `caution` when parallel execution alone is unverified, and `insufficient-context` when both fresh delegation and parallel execution are unverified.
 - If packet derivation is partial or ambiguous, keep unknown fields unknown and call out the missing evidence.
 - When runtime guarantees are missing, prefer explicit uncertainty over optimistic assumptions.
