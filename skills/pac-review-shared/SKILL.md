@@ -154,7 +154,7 @@ Basis: <2-4 sentences explaining the synthesized judgment from both lanes>
 ## Degraded-Mode Rules
 
 - If the runtime cannot verify fresh delegation, say `Fresh delegation: unverified` and treat independence as weaker than the ideal path.
-- If mixed review cannot verify parallel lane execution, say so under `### Execution Guarantees` and lower the verdict from `clear`.
+- If mixed review cannot verify parallel lane execution, say so under `### Execution Guarantees` and lower the verdict: use `caution` when parallel execution alone is unverified, and `insufficient-context` when both fresh delegation and parallel execution are unverified.
 - If packet derivation is partial or ambiguous, keep unknown fields unknown and call out the missing evidence.
 - When runtime guarantees are missing, prefer explicit uncertainty over optimistic assumptions.
 
