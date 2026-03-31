@@ -28,8 +28,10 @@ It also doubles as a reusable OpenCode kit that can be loaded from other reposit
 - Use `/pac-review-adversarial` when you want a more skeptical pass aimed at hidden assumptions, subtle failure modes, rollback risk, and false confidence.
 - Use `/pac-review-mixed` when you want the explicit comparison path. It runs standard and adversarial reviews in parallel from the same normalized context, then returns a synthesized comparison and verdict.
 - All review workflows are analysis only. They review in fresh delegated context by default and should not edit files or apply fixes.
+- Review packets are evidence-first: derive requested target, branch, base branch, diff source, and active OpenSpec change from observable context in that order, and keep unknowns explicit instead of guessing.
 - For maximum adversarial independence, prefer running `/pac-review-adversarial` in a fresh session.
-- Adversarial review may prefer a command-level model route when configured, but the workflow must say so clearly if that preferred routing was not actually honored.
+- Adversarial review may prefer a command-level model route when configured, but the workflow must report route status as `honored`, `unavailable`, or `unknown` based on runtime evidence.
+- If the runtime cannot verify fresh delegation, parallel mixed-lane execution, or preferred routing, the review must report that degraded mode and lower confidence instead of implying the ideal path happened.
 
 These docs are intentionally lightweight and biased toward durable ideas over fast-changing vendor details.
 

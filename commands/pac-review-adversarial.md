@@ -11,12 +11,14 @@ Run the adversarial review workflow for `$ARGUMENTS` or the current change conte
 ## Workflow
 
 1. Prepare one normalized review target packet for this review.
-2. Load `skills/pac-review-shared/SKILL.md` for the shared packet and report contract.
-3. Load `skills/pac-review-adversarial/SKILL.md` for the adversarial-lane instructions.
-4. Launch the review in a fresh delegated context.
-5. Prefer the command-level model route above when the runtime honors it.
-6. If that preferred route is not honored, say so clearly in the output instead of implying stronger isolation than was actually achieved.
-7. Return only the final structured adversarial review report.
+2. Derive requested target, branch, base branch, diff source, and OpenSpec context from observable evidence in that order, keeping unknowns explicit.
+3. Load `skills/pac-review-shared/SKILL.md` for the shared packet and report contract.
+4. Load `skills/pac-review-adversarial/SKILL.md` for the adversarial-lane instructions.
+5. Launch the review in a fresh delegated context.
+6. Prefer the command-level model route above when the runtime honors it.
+7. Report preferred route status as `honored`, `unavailable`, or `unknown` based on runtime evidence rather than assumption.
+8. If delegation freshness or preferred routing cannot be verified, say so clearly instead of implying stronger isolation than was actually achieved.
+9. Return only the final structured adversarial review report.
 
 ## Constraints
 

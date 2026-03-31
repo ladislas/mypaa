@@ -18,4 +18,5 @@ Run standard and adversarial reviews in parallel from the same normalized packet
 - Give both lanes the same normalized review target packet.
 - Do not pass either lane's findings into the other lane.
 - After both lane reports return, produce the shared mixed comparison and verdict.
+- If fresh delegation, parallel execution, or preferred adversarial routing cannot be verified, report that uncertainty explicitly and downgrade the final verdict from `clear`.
 - Return analysis only.

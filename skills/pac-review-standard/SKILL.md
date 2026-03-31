@@ -17,5 +17,6 @@ Produce a structured standard review from the normalized packet and source chang
 - Review for correctness, scope alignment, maintainability risks, and verification gaps.
 - Use the shared report contract exactly.
 - Reason from the normalized packet and source change context.
+- Keep unknown packet fields unknown and report any unverified delegation or packet-derivation guarantees honestly.
 - Do not consume prior adversarial findings as input.
 - Return only the final report.

@@ -33,6 +33,6 @@
 
 ## 6. Runtime-honesty refinements
 
-- [ ] 6.1 Define and implement explicit packet-derivation rules for requested target, branch, base branch, diff source, and active OpenSpec context
-- [ ] 6.2 Define and implement degraded-mode reporting when fresh delegation, parallel lane execution, or preferred routing cannot be verified
-- [ ] 6.3 Define and implement explicit semantics for adversarial route status (`honored`, `unavailable`, `unknown`) and require mixed review to report that status honestly
+- [x] 6.1 Define and implement explicit packet-derivation rules for requested target, branch, base branch, diff source, and active OpenSpec context
+- [x] 6.2 Define and implement degraded-mode reporting when fresh delegation, parallel lane execution, or preferred routing cannot be verified
+- [x] 6.3 Define and implement explicit semantics for adversarial route status (`honored`, `unavailable`, `unknown`) and require mixed review to report that status honestly

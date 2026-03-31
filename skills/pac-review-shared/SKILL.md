@@ -14,6 +14,18 @@ The main agent is the orchestrator. Delegated reviewers perform the review work 
 
 Prepare one packet before delegated review work. Include only known fields.
 
+### Packet Derivation Procedure
+
+Derive packet fields in this order and record uncertainty instead of guessing:
+
+1. `requestedTarget`: use explicit user arguments when present; otherwise omit it.
+2. `branch`: use the current branch only when observable from runtime or git state.
+3. `baseBranch`: use an explicit user-provided base first; otherwise use an observable git tracking or merge-base reference when one is clear; otherwise leave it unknown.
+4. `diffSource`: derive it from the strongest available evidence in this order: explicit user target, PR context, commit target, branch comparison, then working tree.
+5. `openSpecChange`: use an explicitly named change first; otherwise include the active change only when runtime or repo evidence makes one relevant change clear; otherwise leave it unknown.
+
+If evidence is missing, stale, or conflicting, keep the field unknown and explain that in packet or report notes.
+
 ```text
 reviewMode: standard | adversarial | mixed
 requestedTarget: raw user input when present
@@ -28,9 +40,10 @@ runtimeContext:
   currentAgent: include when relevant
   previousAgent: include when relevant
   activeModel: include when relevant
+  guaranteeNotes: missing or conflicting runtime evidence that affects review confidence
 routing:
   preferredCommandModel: command-level model when configured
-  preferredRouteHonored: true | false | unknown
+  preferredRouteStatus: honored | unavailable | unknown
   routingNotes: clear explanation when the preferred route was not honored
 constraints:
   analysisOnly: true
@@ -46,6 +59,12 @@ Both lanes return the same core structure in this order.
 ```markdown
 ## Status
 <clear | issues-found | insufficient-context>
+
+## Runtime Honesty
+Packet derivation: <complete | partial | ambiguous>
+Fresh delegation: <verified | unverified>
+Preferred route status: <honored | unavailable | unknown>
+Notes: <missing packet evidence, routing proof limits, or `No runtime honesty caveats.`>
 
 ## Summary
 <2-4 sentence summary of what was reviewed and the overall risk shape>
@@ -76,6 +95,8 @@ Coverage notes: <missing requirement coverage, likely drift, or "No obvious scop
 - `adversarial` focuses on hidden assumptions, subtle failure modes, rollback risk, and false confidence.
 - Both lanes should read full changed files after inspecting diffs.
 - Both lanes should summarize scope before detailed findings when intent context exists.
+- Both lanes should report runtime uncertainty in `## Runtime Honesty` and `## Verification Gaps` instead of implying guarantees they cannot prove.
+- Omit `Preferred route status` when no preferred route is configured for that lane.
 - If there are no actionable findings, write `- No actionable findings.` under `## Findings`.
 
 ## Mixed Review Comparison And Verdict Contract
@@ -101,6 +122,13 @@ When mixed review completes, return the standard report, the adversarial report,
 ### Unresolved Verification Gaps
 - <evidence still missing after considering both reports, or `None noted.`>
 
+### Execution Guarantees
+- Standard fresh delegation: <verified | unverified>
+- Adversarial fresh delegation: <verified | unverified>
+- Parallel lane execution: <verified | unverified>
+- Adversarial preferred route status: <honored | unavailable | unknown> when a preferred route is configured
+- Notes: <missing runtime proof, degraded execution caveats, or `No additional caveats.`>
+
 ## Mixed Review Verdict
 Verdict: <clear | caution | blocking | insufficient-context>
 Basis: <2-4 sentences explaining the synthesized judgment from both lanes>
@@ -112,13 +140,23 @@ Basis: <2-4 sentences explaining the synthesized judgment from both lanes>
 - `caution`: non-blocking but meaningful risk or follow-up remains
 - `blocking`: one or more findings should be resolved or disproven before shipping
 - `insufficient-context`: missing evidence is too large for a confident combined judgment
+- If fresh delegation or parallel execution cannot be verified, do not return `clear`.
+- If routing status is `unknown` or `unavailable`, say so explicitly and lower the verdict when that missing guarantee weakens independence or confidence.
 
 ## Routing Honesty Rules
 
 - Prefer command-level routing when a review command configures one.
 - Do not advertise a dynamic per-invocation `--model` override unless the runtime actually supports and honors it.
-- If a preferred route was not honored, say so clearly in the workflow output.
+- Use `honored` only with positive runtime evidence, `unavailable` when the runtime explicitly rejects or bypasses the preferred route, and `unknown` when the runtime provides no proof either way.
+- If a preferred route was not honored or cannot be proven, say so clearly in the workflow output.
 - Do not imply model isolation stronger than the runtime actually provided.
+
+## Degraded-Mode Rules
+
+- If the runtime cannot verify fresh delegation, say `Fresh delegation: unverified` and treat independence as weaker than the ideal path.
+- If mixed review cannot verify parallel lane execution, say so under `### Execution Guarantees` and lower the verdict from `clear`.
+- If packet derivation is partial or ambiguous, keep unknown fields unknown and call out the missing evidence.
+- When runtime guarantees are missing, prefer explicit uncertainty over optimistic assumptions.
 
 ## Analysis-Only Guardrails
 

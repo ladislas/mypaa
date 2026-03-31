@@ -72,9 +72,12 @@ Use OpenSpec as the default planning layer for meaningful, multi-step work in th
 - `/pac-review-adversarial` is the skeptical pass. Use it when you want stronger pressure-testing for hidden assumptions, edge cases, rollback concerns, and places where the first pass might be too trusting.
 - `/pac-review-mixed` is the explicit comparison path. It runs standard and adversarial reviews in parallel from the same normalized context, then returns both lane reports plus a comparison and verdict.
 - All review commands are analysis only. They should not edit files, apply fixes, stage changes, or create commits.
+- Review packets should derive requested target, branch, base branch, diff source, and active OpenSpec change from observable evidence in that order, and should keep unknown values explicit instead of guessing.
 - Fresh delegated context is the default review isolation mechanism for both commands. That keeps the main thread cleaner and reduces automatic reuse of earlier reasoning.
 - For the strongest practical independence, run `/pac-review-adversarial` in a fresh session. Fresh delegated context is the baseline; a fresh session is the stronger option.
 - Mixed review performs comparison explicitly. Separate `/pac-review` and `/pac-review-adversarial` runs should not implicitly compare just because both reports exist in thread state.
+- Preferred adversarial routing should be reported as `honored`, `unavailable`, or `unknown` based on runtime evidence, not assumption.
+- If fresh delegation, parallel lane execution, or preferred routing cannot be verified, the review should report that degraded mode explicitly and lower confidence in the final mixed verdict.
 
 ## Review Usage Patterns
 
@@ -88,7 +91,7 @@ Use OpenSpec as the default planning layer for meaningful, multi-step work in th
 - Review workflows should use runtime-awareness context only when it helps interpret the review target or delegated routing behavior. This matches `openspec/specs/agent-runtime-awareness/spec.md`, which exposes current agent, previous agent, and active model for reviewer workflows.
 - Standard review should follow the current routing defaults.
 - Adversarial review should prefer independence from fresh delegated context first, not from automatic model churn. This matches `docs/playbooks/model-routing.md`.
-- Adversarial review may prefer command-level routing when the command defines one, but the workflow must clearly disclose if that preference was not honored at runtime.
+- Adversarial review may prefer command-level routing when the command defines one, but the workflow must clearly disclose whether that preference was `honored`, `unavailable`, or `unknown` at runtime.
 - Do not advertise a per-invocation `--model` review override unless the runtime actually supports it.
 
 ## When to Use It
