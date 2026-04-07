@@ -22,6 +22,13 @@ It also doubles as a reusable OpenCode kit that can be loaded from other reposit
 - Shared kit playbook: `docs/playbooks/shared-opencode-kit.md`
 - Default interface decision: `docs/decisions/ADR-0001-default-interface-opencode.md`
 
+## Runtime probe workflows
+
+- Use `/pac-probe-same` to verify that direct command-to-agent routing can enter the named same-model probe agent and report its effective runtime.
+- Use `/pac-probe-alt` to verify the same direct routing flow with a different configured probe-agent model.
+- Use `/pac-probe-nested` to verify whether a directly routed orchestrator agent can fan out to both probe agents and return the combined result.
+- All probe workflows use `runtime_introspection` so the runtime, not wishful thinking, tells you what actually happened.
+
 These docs are intentionally lightweight and biased toward durable ideas over fast-changing vendor details.
 
 ## Repository Tooling
