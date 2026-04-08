@@ -23,5 +23,6 @@ TestResults.xml
 
 # OpenCode runtime installs
 node_modules/
-/package.json
+/package-lock.json
+/.opencode/package-lock.json
 /bun.lock

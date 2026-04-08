@@ -1,0 +1,22 @@
+{
+  "keywords": [
+    "pi-package"
+  ],
+  "pi": {
+    "prompts": [
+      "./prompts"
+    ],
+    "skills": [
+      "./skills"
+    ],
+    "extensions": [
+      "./extensions"
+    ],
+    "themes": [
+      "./themes"
+    ]
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "1.4.0"
+  }
+}
