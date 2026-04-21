@@ -17,8 +17,8 @@
 
 ## 4. Preserve future persona work without keeping inactive runtime files
 
-- [ ] 4.1 Create a GitHub issue that captures the current Rick persona agent content and explains that Pi persona support is future work.
-- [ ] 4.2 Remove the current Rick agent files from the active repository surface once their content is preserved in the issue.
+- [x] 4.1 Create a GitHub issue that captures the current Rick persona agent content and explains that Pi persona support is future work.
+- [x] 4.2 Remove the current Rick agent files from the active repository surface once their content is preserved in the issue.
 
 ## 5. Verify the Pi-only end state
 
