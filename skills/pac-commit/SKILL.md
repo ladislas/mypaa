@@ -35,6 +35,7 @@ Use this skill whenever the user asks to create commits directly in normal conve
 - Keep summaries concise, imperative, and without a trailing period.
 - If a commit could fit multiple categories, choose the emoji and type that best reflect the primary impact of the change rather than the implementation detail.
 - Use a body when needed to explain why the change exists, tradeoffs, issue references, or migration notes instead of repeating the diff.
+- Do not add sign-offs.
 - Commit during implementation when a meaningful task group or work slice is complete and verified; do not wait until the very end.
 - Use one coherent commit per meaningful task group. Do not create one commit per file or tiny checkbox, and do not batch unrelated work into one large commit.
 - Select the file list for each commit explicitly. If unrelated files are already staged, leave them out of the current commit.
@@ -93,8 +94,9 @@ When the work follows an OpenSpec change:
 
 1. Determine commit scope from the user's request.
 
-   - Treat explicit file paths as the intended scope.
+   - Treat explicit file paths or globs as the intended scope.
    - Treat extra user instructions as commit guidance.
+   - If both file scope and extra instructions are present, honor both.
    - If the intended scope is ambiguous, ask before committing.
 
 2. Inspect the repository state.
@@ -117,6 +119,7 @@ When the work follows an OpenSpec change:
 
    - Choose the emoji from the shortlist in this skill.
    - If none fit well and `gitmoji` is available, you may run `gitmoji list`.
+   - If the user specified file paths or globs, only stage and commit those files unless the user explicitly asks otherwise.
    - Stage only the files for the current logical unit.
    - Verify the staged file list matches the intended scope.
    - Commit with the format `<emoji> <type>(<scope>): <summary>` or `<emoji> <type>: <summary>` when no scope is needed.
