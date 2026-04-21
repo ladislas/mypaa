@@ -6,9 +6,9 @@
 
 ## 2. Remove OpenCode runtime and tooling
 
-- [ ] 2.1 Delete `opencode.json` and remove any package/dependency wiring that only exists for OpenCode support.
-- [ ] 2.2 Remove the OpenCode `mise` launcher and OpenCode-specific validation tasks from `.mise/tasks/`.
-- [ ] 2.3 Remove the OpenCode runtime-awareness plugin and any in-repo references to it.
+- [x] 2.1 Delete `opencode.json` and remove any package/dependency wiring that only exists for OpenCode support.
+- [x] 2.2 Remove the OpenCode `mise` launcher and OpenCode-specific validation tasks from `.mise/tasks/`.
+- [x] 2.3 Remove the OpenCode runtime-awareness plugin and any in-repo references to it.
 
 ## 3. Review shared workflow assets
 

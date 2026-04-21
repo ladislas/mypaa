@@ -12,8 +12,5 @@
     "extensions": [
       "./extensions"
     ]
-  },
-  "dependencies": {
-    "@opencode-ai/plugin": "1.4.0"
   }
 }
