@@ -5,8 +5,8 @@
 
 ## 2. Simplify the active pre-commit validation contract
 
-- [ ] 2.1 Update `openspec/specs/content-precommit-validation/spec.md` so it reflects the supported YAML/Markdown hook behavior and the `openspec/` Markdown override without promising `.opencode/` support as active workflow.
-- [ ] 2.2 Verify the updated validation spec against `README.md`, `.config/hk.pkl`, and the active markdownlint configuration files.
+- [x] 2.1 Update `openspec/specs/content-precommit-validation/spec.md` so it reflects the supported YAML/Markdown hook behavior and the `openspec/` Markdown override without promising `.opencode/` support as active workflow.
+- [x] 2.2 Verify the updated validation spec against `README.md`, `.config/hk.pkl`, and the active markdownlint configuration files.
 
 ## 3. Retire the unsupported GitHub task capture spec
 
