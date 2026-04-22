@@ -19,6 +19,7 @@ import { type AssistantMessage, type Message, type ThinkingLevel as AiThinkingLe
 import {
 	Container,
 	Editor,
+	matchesKey,
 	Markdown,
 	truncateToWidth,
 	visibleWidth,
@@ -263,7 +264,7 @@ class BtwOverlay extends Container implements Focusable {
 			return;
 		}
 
-		if (data === "\x09") {
+		if (matchesKey(data, "ctrl+i")) {
 			this.onImportContextCallback();
 			return;
 		}
