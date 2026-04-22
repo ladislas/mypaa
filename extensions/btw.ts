@@ -2,6 +2,8 @@
  * Original source: https://github.com/mitsuhiko/agent-stuff/blob/main/extensions/btw.ts
  */
 import {
+	buildSessionContext,
+	convertToLlm,
 	createAgentSession,
 	createExtensionRuntime,
 	getMarkdownTheme,
@@ -29,11 +31,12 @@ import {
 
 const BTW_ENTRY_TYPE = "btw-thread-entry";
 const BTW_RESET_TYPE = "btw-thread-reset";
+const BTW_IMPORT_TYPE = "btw-import-context";
 const TRUNCATED_TOOL_CALL_SUFFIX = "...";
 
 const BTW_SYSTEM_PROMPT = [
 	"You are BTW, an isolated side-channel assistant embedded in the user's coding agent.",
-	"You do not have access to the main conversation or live tool activity unless the user explicitly shares that context here.",
+	"You are isolated from the main conversation by default; the user may explicitly import a frozen main-session snapshot for reference.",
 	"Help with focused questions, planning, and quick explorations.",
 	"Be direct and practical.",
 ].join(" ");
@@ -57,6 +60,12 @@ type BtwDetails = {
 
 type BtwResetDetails = {
 	timestamp: number;
+};
+
+type BtwImportDetails = {
+	section: string;
+	timestamp: number;
+	messageCount: number;
 };
 
 type OverlayRuntime = {
@@ -200,6 +209,7 @@ class BtwOverlay extends Container implements Focusable {
 	private readonly getStatus: () => string;
 	private readonly onSubmitCallback: (value: string) => void;
 	private readonly onDismissCallback: () => void;
+	private readonly onImportContextCallback: () => void;
 	private _focused = false;
 
 	get focused(): boolean {
@@ -219,6 +229,7 @@ class BtwOverlay extends Container implements Focusable {
 		getStatus: () => string,
 		onSubmit: (value: string) => void,
 		onDismiss: () => void,
+		onImportContext: () => void,
 	) {
 		super();
 		this.tui = tui;
@@ -228,6 +239,7 @@ class BtwOverlay extends Container implements Focusable {
 		this.getStatus = getStatus;
 		this.onSubmitCallback = onSubmit;
 		this.onDismissCallback = onDismiss;
+		this.onImportContextCallback = onImportContext;
 
 		const editorTheme: EditorTheme = {
 			borderColor: (s) => theme.fg("borderMuted", s),
@@ -248,6 +260,11 @@ class BtwOverlay extends Container implements Focusable {
 	handleInput(data: string): void {
 		if (this.keybindings.matches(data, "tui.select.cancel")) {
 			this.onDismissCallback();
+			return;
+		}
+
+		if (data === "\x09") {
+			this.onImportContextCallback();
 			return;
 		}
 
@@ -298,7 +315,7 @@ class BtwOverlay extends Container implements Focusable {
 		const lines = [
 			this.borderLine(innerWidth, "top"),
 			this.frameLine(this.theme.fg("accent", this.theme.bold(" BTW side chat ")), innerWidth),
-			this.frameLine(this.theme.fg("dim", "Separate side conversation. Esc closes."), innerWidth),
+			this.frameLine(this.theme.fg("dim", "Isolated side conversation. Ctrl+I to import context."), innerWidth),
 			this.theme.fg("borderMuted", `├${"─".repeat(innerWidth)}┤`),
 		];
 
@@ -314,7 +331,7 @@ class BtwOverlay extends Container implements Focusable {
 		for (const line of editorLines) {
 			lines.push(this.frameLine(line, innerWidth));
 		}
-		lines.push(this.frameLine(this.theme.fg("dim", "Enter submit · Shift+Enter newline · Esc close"), innerWidth));
+		lines.push(this.frameLine(this.theme.fg("dim", "Enter submit · Shift+Enter newline · Ctrl+I import · Esc close"), innerWidth));
 		lines.push(this.borderLine(innerWidth, "bottom"));
 
 		return lines;
@@ -335,6 +352,9 @@ export default function (pi: ExtensionAPI) {
 	let overlayRuntime: OverlayRuntime | null = null;
 	let activeSideSession: SideSessionRuntime | null = null;
 	let overlayRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+	let importedContextSection: string | null = null;
+	let importedContextTimestamp: number | null = null;
+	let importedContextMessageCount = 0;
 
 	const mdTheme = getMarkdownTheme();
 
@@ -382,6 +402,65 @@ export default function (pi: ExtensionAPI) {
 		}
 	}
 
+	function filterMessagesForBtw(messages: Message[]): Message[] {
+		return messages.filter((msg) => msg.role !== "toolResult");
+	}
+
+	function formatImportedContextSection(messages: Message[], timestamp: number): string {
+		const MAX_CHARS = 15000;
+		const dateStr = new Date(timestamp).toISOString();
+		const parts: string[] = [
+			`<imported-main-context timestamp="${dateStr}">`,
+			"Snapshot of the main conversation imported at your request. Use as reference for this BTW discussion.",
+			"",
+		];
+
+		for (const msg of messages) {
+			if (msg.role === "user") {
+				const content = (msg as { role: "user"; content: string | Array<{ type: string; text?: string }> }).content;
+				const text =
+					typeof content === "string"
+						? content.trim()
+						: (content as Array<{ type: string; text?: string }>)
+								.filter((p) => p.type === "text")
+								.map((p) => p.text ?? "")
+								.join("\n")
+								.trim();
+				if (text) {
+					parts.push(`[User]: ${text}`, "");
+				}
+			} else if (msg.role === "assistant") {
+				const assistantMsg = msg as AssistantMessage;
+				const lines: string[] = [];
+				for (const part of assistantMsg.content) {
+					if (part.type === "text") {
+						const textPart = part as { type: "text"; text: string };
+						if (textPart.text.trim()) {
+							lines.push(textPart.text.trim());
+						}
+					} else if (part.type === "toolCall") {
+						const tc = part as { type: "toolCall"; name: string; arguments: Record<string, unknown> };
+						const argSummary = formatToolArgs(tc.name, tc.arguments);
+						lines.push(`[Tool: ${tc.name}${argSummary ? ` ${argSummary}` : ""}]`);
+					}
+					// Skip "thinking" parts
+				}
+				const text = lines.join("\n").trim();
+				if (text) {
+					parts.push(`[Assistant]: ${text}`, "");
+				}
+			}
+		}
+
+		parts.push("</imported-main-context>");
+		let result = parts.join("\n");
+		if (result.length > MAX_CHARS) {
+			result = result.slice(0, MAX_CHARS) + "\n[...context truncated...]\n</imported-main-context>";
+		}
+
+		return result;
+	}
+
 	function renderToolCallLines(toolCalls: ToolCallInfo[], theme: ExtensionContext["ui"]["theme"], width: number): string[] {
 		const lines: string[] = [];
 		for (const tc of toolCalls) {
@@ -407,11 +486,28 @@ export default function (pi: ExtensionAPI) {
 	}
 
 	function getTranscriptLinesInner(width: number, theme: ExtensionContext["ui"]["theme"]): string[] {
-		if (thread.length === 0 && !pendingQuestion && !pendingAnswer && !pendingError) {
-			return [theme.fg("dim", "No BTW messages yet. Type a question below.")];
+		const lines: string[] = [];
+
+		// Show import marker at top when context is imported
+		if (importedContextSection !== null && importedContextTimestamp !== null) {
+			const time = new Date(importedContextTimestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+			const countStr = importedContextMessageCount > 0 ? ` · ${importedContextMessageCount} msgs` : "";
+			lines.push(theme.fg("dim", `↑ context from main session (${time}${countStr})`));
+			lines.push("");
 		}
 
-		const lines: string[] = [];
+		if (thread.length === 0 && !pendingQuestion && !pendingAnswer && !pendingError) {
+			lines.push(
+				theme.fg(
+					"dim",
+					importedContextSection !== null
+						? "Main session context imported. Ask a question below."
+						: "No BTW messages yet. Type a question below.",
+				),
+			);
+			return lines;
+		}
+
 		for (const item of thread.slice(-6)) {
 			// User message
 			const userLines = renderMarkdownLines(item.question.trim(), width);
@@ -500,6 +596,56 @@ export default function (pi: ExtensionAPI) {
 		overlayRuntime?.setDraft?.(value);
 	}
 
+	async function performImport(ctx: ExtensionContext | ExtensionCommandContext): Promise<boolean> {
+		try {
+			const entries = ctx.sessionManager.getBranch();
+			const sessionCtx = buildSessionContext(entries);
+			const rawMessages = convertToLlm(sessionCtx.messages);
+			const filtered = filterMessagesForBtw(rawMessages);
+
+			if (filtered.length === 0) {
+				notify(ctx, "No conversation context to import from main session.", "warning");
+				return false;
+			}
+
+			const timestamp = Date.now();
+			const section = formatImportedContextSection(filtered, timestamp);
+			importedContextSection = section;
+			importedContextTimestamp = timestamp;
+			importedContextMessageCount = filtered.length;
+
+			const details: BtwImportDetails = { section, timestamp, messageCount: filtered.length };
+			pi.appendEntry(BTW_IMPORT_TYPE, details);
+
+			await disposeSideSession();
+			syncOverlay();
+			return true;
+		} catch (error) {
+			notify(ctx, `Context import failed: ${error instanceof Error ? error.message : String(error)}`, "error");
+			return false;
+		}
+	}
+
+	async function importContextFromOverlay(ctx: ExtensionContext | ExtensionCommandContext): Promise<void> {
+		if (sideBusy) {
+			notify(ctx, "Cannot import context while BTW is processing.", "warning");
+			return;
+		}
+
+		const isRefresh = importedContextSection !== null;
+		setOverlayStatus(isRefresh ? "Refreshing imported context..." : "Importing context...");
+
+		const success = await performImport(ctx);
+		if (success) {
+			setOverlayStatus(isRefresh ? "Context refreshed." : "Context imported. Ask a question below.");
+			notify(ctx, isRefresh ? "BTW context refreshed." : "Main session context imported into BTW.", "info");
+		} else {
+			setOverlayStatus(importedContextSection !== null ? "Context refresh failed. Previous import still active." : "Ready");
+		}
+
+		syncOverlay();
+	}
+
 	async function disposeSideSession(): Promise<void> {
 		const current = activeSideSession;
 		activeSideSession = null;
@@ -536,6 +682,9 @@ export default function (pi: ExtensionAPI) {
 		pendingError = null;
 		pendingToolCalls = [];
 		sideBusy = false;
+		importedContextSection = null;
+		importedContextTimestamp = null;
+		importedContextMessageCount = 0;
 		setOverlayDraft("");
 		setOverlayStatus("Ready");
 		await disposeSideSession();
@@ -557,6 +706,9 @@ export default function (pi: ExtensionAPI) {
 		cancelledSideRequestId = null;
 		overlayStatus = "Ready";
 		overlayDraft = "";
+		importedContextSection = null;
+		importedContextTimestamp = null;
+		importedContextMessageCount = 0;
 		const branch = ctx.sessionManager.getBranch();
 		let lastResetIndex = -1;
 		for (let i = 0; i < branch.length; i++) {
@@ -567,14 +719,23 @@ export default function (pi: ExtensionAPI) {
 		}
 
 		for (const entry of branch.slice(lastResetIndex + 1)) {
-			if (entry.type !== "custom" || entry.customType !== BTW_ENTRY_TYPE) {
+			if (entry.type !== "custom") {
 				continue;
 			}
-			const details = entry.data as BtwDetails | undefined;
-			if (!details?.question || !details.answer) {
-				continue;
+			if (entry.customType === BTW_ENTRY_TYPE) {
+				const details = entry.data as BtwDetails | undefined;
+				if (!details?.question || !details.answer) {
+					continue;
+				}
+				thread.push(details);
+			} else if (entry.customType === BTW_IMPORT_TYPE) {
+				const details = entry.data as BtwImportDetails | undefined;
+				if (details?.section && details.timestamp) {
+					importedContextSection = details.section;
+					importedContextTimestamp = details.timestamp;
+					importedContextMessageCount = details.messageCount ?? 0;
+				}
 			}
-			thread.push(details);
 		}
 
 		syncOverlay();
@@ -585,12 +746,17 @@ export default function (pi: ExtensionAPI) {
 			return null;
 		}
 
+		const appendSP: string[] =
+			importedContextSection !== null
+				? [BTW_SYSTEM_PROMPT, importedContextSection]
+				: [BTW_SYSTEM_PROMPT];
+
 		const { session } = await createAgentSession({
 			sessionManager: SessionManager.inMemory(ctx.cwd),
 			model: ctx.model,
 			modelRegistry: ctx.modelRegistry as AgentSession["modelRegistry"],
 			thinkingLevel: pi.getThinkingLevel() as SessionThinkingLevel,
-			resourceLoader: createBtwResourceLoader(ctx),
+			resourceLoader: createBtwResourceLoader(ctx, appendSP),
 		});
 
 		const seedMessages = buildSeedMessages(thread);
@@ -715,6 +881,9 @@ export default function (pi: ExtensionAPI) {
 						},
 						() => {
 							void closeOverlayFlow(ctx);
+						},
+						() => {
+							void importContextFromOverlay(ctx);
 						},
 					);
 
