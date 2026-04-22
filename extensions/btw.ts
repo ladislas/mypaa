@@ -425,6 +425,7 @@ export default function (pi: ExtensionAPI) {
 			const userPendingLines = renderMarkdownLines(pendingQuestion.trim(), width);
 			lines.push(theme.fg("accent", theme.bold("You: ")) + (userPendingLines[0] ?? ""));
 			lines.push(...userPendingLines.slice(1));
+			lines.push("");
 
 			// Show tool calls inline
 			if (pendingToolCalls.length > 0) {
@@ -434,7 +435,6 @@ export default function (pi: ExtensionAPI) {
 			if (pendingError) {
 				lines.push(theme.fg("error", `❌ ${pendingError}`));
 			} else if (pendingAnswer) {
-				lines.push("");
 				const mdLines = renderMarkdownLines(pendingAnswer, width);
 				lines.push(theme.fg("success", theme.bold("Agent: ")) + (mdLines[0] ?? theme.fg("dim", "(no response)")));
 				lines.push(...mdLines.slice(1));
