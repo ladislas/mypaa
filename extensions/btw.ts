@@ -2,7 +2,6 @@
  * Original source: https://github.com/mitsuhiko/agent-stuff/blob/main/extensions/btw.ts
  */
 import {
-	buildSessionContext,
 	createAgentSession,
 	createExtensionRuntime,
 	getMarkdownTheme,
@@ -33,8 +32,8 @@ const BTW_RESET_TYPE = "btw-thread-reset";
 const TRUNCATED_TOOL_CALL_SUFFIX = "...";
 
 const BTW_SYSTEM_PROMPT = [
-	"You are BTW, a side-channel assistant embedded in the user's coding agent.",
-	"You have access to the main conversation context — use it to give informed answers.",
+	"You are BTW, an isolated side-channel assistant embedded in the user's coding agent.",
+	"You do not have access to the main conversation or live tool activity unless the user explicitly shares that context here.",
 	"Help with focused questions, planning, and quick explorations.",
 	"Be direct and practical.",
 ].join(" ");
@@ -48,6 +47,7 @@ type BtwDetails = {
 	question: string;
 	answer: string;
 	timestamp: number;
+	api?: AssistantMessage["api"];
 	provider: string;
 	model: string;
 	thinkingLevel: SessionThinkingLevel;
@@ -143,15 +143,8 @@ function getLastAssistantMessage(session: AgentSession): AssistantMessage | null
 	return null;
 }
 
-function buildSeedMessages(ctx: ExtensionContext, thread: BtwDetails[]): Message[] {
+function buildSeedMessages(thread: BtwDetails[]): Message[] {
 	const seed: Message[] = [];
-
-	try {
-		const contextMessages = buildSessionContext(ctx.sessionManager.getEntries(), ctx.sessionManager.getLeafId()).messages;
-		seed.push(...contextMessages);
-	} catch {
-		// Ignore context seed failures and continue with an empty side thread.
-	}
 
 	for (const item of thread) {
 		seed.push(
@@ -165,7 +158,7 @@ function buildSeedMessages(ctx: ExtensionContext, thread: BtwDetails[]): Message
 				content: [{ type: "text", text: item.answer }],
 				provider: item.provider,
 				model: item.model,
-				api: ctx.model?.api ?? "openai-responses",
+				api: item.api ?? "openai-responses",
 				usage:
 					item.usage ??
 					{
@@ -600,7 +593,7 @@ export default function (pi: ExtensionAPI) {
 			resourceLoader: createBtwResourceLoader(ctx),
 		});
 
-		const seedMessages = buildSeedMessages(ctx, thread);
+		const seedMessages = buildSeedMessages(thread);
 		if (seedMessages.length > 0) {
 			session.agent.state.messages = seedMessages as typeof session.agent.state.messages;
 		}
@@ -918,6 +911,7 @@ export default function (pi: ExtensionAPI) {
 				question,
 				answer,
 				timestamp: Date.now(),
+				api: model.api,
 				provider: model.provider,
 				model: model.id,
 				thinkingLevel: pi.getThinkingLevel() as SessionThinkingLevel,
@@ -967,7 +961,7 @@ export default function (pi: ExtensionAPI) {
 	}
 
 	pi.registerCommand("btw", {
-		description: "Open a simple BTW side-chat popover. `/btw <text>` asks immediately, `/btw` opens the side thread.",
+		description: "Open an isolated BTW side-chat popover. `/btw <text>` asks immediately, `/btw` opens the side thread.",
 		handler: async (args, ctx) => {
 			const question = args.trim();
 
@@ -978,7 +972,7 @@ export default function (pi: ExtensionAPI) {
 						"Start fresh",
 					]);
 					if (choice === "Continue previous conversation") {
-						// Dispose session so it's recreated with fresh main context on next submit
+						// Dispose the session so it is recreated from the saved BTW thread on next submit.
 						await disposeSideSession();
 						setOverlayStatus("Continuing BTW thread.");
 						await ensureOverlay(ctx);
