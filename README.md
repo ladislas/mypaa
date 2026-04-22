@@ -64,6 +64,10 @@ The first validation prompt is:
 
 - `/hello-world`
 
+A useful working prompt is:
+
+- `/lwot [optional text|github issue|github pr|url]`
+
 ## Why this exists
 
 - Build a reliable personal AI operating system

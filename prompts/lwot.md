@@ -1,0 +1,59 @@
+---
+description: "Let's work on that - turn a note, GitHub issue/PR, or URL into concrete work"
+---
+
+Let's work on that.
+
+Default to planning before implementation. Unless the task is truly straightforward and clearly ready to execute, explain the plan first and ask the user for confirmation before making changes. If the user may be discussing, exploring, or clarifying rather than asking for immediate implementation, lean on the side of caution and confirm before starting work.
+
+Use the optional argument after `/lwot` as the thing we should work from. It may be:
+
+- a free-form description of the work
+- a GitHub issue or PR URL
+- another URL
+- nothing, in which case infer from the conversation and ask only if unclear
+
+**Input**: Optional context for the work: free text, GitHub issue/PR, or another URL.
+**Provided arguments**: $@
+
+## Behavior
+
+1. **Resolve the target**
+   - If an argument is provided, use it.
+   - If no argument is provided, infer what "that" refers to from the conversation.
+   - If it is still unclear, ask a concise clarifying question before proceeding.
+
+2. **Gather the minimum context needed**
+   - **Free text**: restate the goal in your own words and inspect the repository as needed.
+   - **GitHub issue or PR**: use the `gh` CLI (or the URL directly) to read the title, body, status, and the most relevant comments or review notes.
+   - **Other URL**: fetch or read the page or resource and extract only the parts needed to do the work.
+   - If a URL cannot be accessed because of auth, networking, or unsupported content, say so plainly and ask the user to paste the relevant context.
+
+3. **Frame the work before changing code**
+   - State your assumptions.
+   - Define the smallest useful outcome.
+   - Give a short plan before starting work, especially for anything non-trivial.
+   - Unless the task is truly straightforward and the user's intent to implement is explicit, ask for confirmation before making changes.
+
+4. **Choose the right path**
+   - For very small, clear, implementation-ready work, proceed directly.
+   - For anything that may still be under discussion, present the plan and ask whether to proceed.
+   - For meaningful multi-step work, propose using OpenSpec (`/pac-propose` then `/pac-apply`) before implementation.
+   - If the input is exploratory rather than actionable, suggest `/pac-explore`.
+
+5. **Do the work**
+   - Only start implementation once you have either user confirmation or a truly straightforward request that is clearly asking for execution now.
+   - Keep changes minimal and directly tied to the request.
+   - Match existing style and avoid unrelated refactors.
+   - Use GitHub context and linked URLs as supporting material, not as permission to expand scope.
+
+6. **Verify and report**
+   - Run the smallest relevant checks.
+   - Summarize what you changed, what you verified, and any open questions.
+
+## Examples
+
+- `/lwot fix the README install instructions`
+- `/lwot https://github.com/owner/repo/issues/123`
+- `/lwot https://github.com/owner/repo/pull/456`
+- `/lwot https://example.com/spec-notes`
