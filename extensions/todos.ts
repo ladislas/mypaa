@@ -752,16 +752,25 @@ function normalizeTodoSettings(raw: Partial<TodoSettings>): TodoSettings {
 
 async function readTodoSettings(todosDir: string): Promise<TodoSettings> {
 	const settingsPath = getTodoSettingsPath(todosDir);
-	let data: Partial<TodoSettings> = {};
 
+	let raw: string;
 	try {
-		const raw = await fs.readFile(settingsPath, "utf8");
-		data = JSON.parse(raw) as Partial<TodoSettings>;
-	} catch {
-		data = {};
+		raw = await fs.readFile(settingsPath, "utf8");
+	} catch (error: any) {
+		if (error?.code === "ENOENT") {
+			return normalizeTodoSettings({});
+		}
+		throw error;
 	}
 
-	return normalizeTodoSettings(data);
+	try {
+		const data = JSON.parse(raw) as Partial<TodoSettings>;
+		return normalizeTodoSettings(data);
+	} catch (error) {
+		throw new Error(
+			`Failed to parse ${settingsPath}: ${error instanceof Error ? error.message : String(error)}`,
+		);
+	}
 }
 
 async function garbageCollectTodos(todosDir: string, settings: TodoSettings): Promise<void> {

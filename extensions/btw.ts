@@ -605,9 +605,9 @@ export default function (pi: ExtensionAPI) {
 					return;
 				}
 				case "tool_execution_end": {
-					const endToolName = (event as { toolName?: string }).toolName ?? "unknown";
+					const endToolCallId = (event as { toolCallId?: string }).toolCallId ?? "";
 					const tc = pendingToolCalls.find(
-						(t) => t.toolName === endToolName && t.status === "running",
+						(t) => t.toolCallId === endToolCallId,
 					);
 					if (tc) {
 						tc.status = (event as { isError?: boolean }).isError ? "error" : "done";
@@ -799,6 +799,7 @@ export default function (pi: ExtensionAPI) {
 			await resetThread(ctx);
 			notify(ctx, "Injected BTW summary into main chat.", "info");
 		} catch (error) {
+			setOverlayStatus("Ready");
 			notify(ctx, error instanceof Error ? error.message : String(error), "error");
 		}
 	}

@@ -190,8 +190,8 @@ function sumSessionUsage(ctx: ExtensionCommandContext): {
 		if (!msg || msg.role !== "assistant") continue;
 		const usage = msg.usage;
 		if (!usage) continue;
-		input += Number(usage.inputTokens ?? 0) || 0;
-		output += Number(usage.outputTokens ?? 0) || 0;
+		input += Number(usage.input ?? 0) || 0;
+		output += Number(usage.output ?? 0) || 0;
 		cacheRead += Number(usage.cacheRead ?? 0) || 0;
 		cacheWrite += Number(usage.cacheWrite ?? 0) || 0;
 		totalCost += extractCostTotal(usage);

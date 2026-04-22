@@ -699,8 +699,7 @@ const openExternalEditor = (tui: TUI, editorCmd: string, content: string): strin
 		writeFileSync(tmpFile, content, "utf8");
 		tui.stop();
 
-		const [editor, ...editorArgs] = editorCmd.split(" ");
-		const result = spawnSync(editor, [...editorArgs, tmpFile], { stdio: "inherit" });
+		const result = spawnSync("sh", ["-c", '"$1" "$2"', "--", editorCmd, tmpFile], { stdio: "inherit" });
 
 		if (result.status === 0) {
 			return readFileSync(tmpFile, "utf8").replace(/\n$/, "");
