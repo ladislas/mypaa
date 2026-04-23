@@ -10,11 +10,11 @@ Use the optional argument after `/lwot` as the thing we should work from. It may
 
 - a free-form description of the work
 - a GitHub issue or PR URL
+- a todo ID (e.g. `TODO-abc123`)
 - another URL
 - nothing, in which case infer from the conversation and ask only if unclear
 
-**Input**: Optional context for the work: free text, GitHub issue/PR, or another URL.
-**Provided arguments**: $@
+**Input**: Optional context for the work: free text, GitHub issue/PR, todo ID, or another URL.
 
 ## Behavior
 
@@ -26,6 +26,7 @@ Use the optional argument after `/lwot` as the thing we should work from. It may
 2. **Gather the minimum context needed**
    - **Free text**: restate the goal in your own words and inspect the repository as needed.
    - **GitHub issue or PR**: use the `gh` CLI (or the URL directly) to read the title, body, status, and the most relevant comments or review notes.
+   - **Todo ID**: read the todo with the `todo` tool (`action: get, id: <id>`) to retrieve its title, body, and status.
    - **Other URL**: fetch or read the page or resource and extract only the parts needed to do the work.
    - If a URL cannot be accessed because of auth, networking, or unsupported content, say so plainly and ask the user to paste the relevant context.
 
@@ -57,3 +58,6 @@ Use the optional argument after `/lwot` as the thing we should work from. It may
 - `/lwot https://github.com/owner/repo/issues/123`
 - `/lwot https://github.com/owner/repo/pull/456`
 - `/lwot https://example.com/spec-notes`
+- `/lwot TODO-abc123`
+
+**Provided arguments**: $@
