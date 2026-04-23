@@ -14,7 +14,6 @@ Use the optional argument after `/lwot` as the thing we should work from. It may
 - nothing, in which case infer from the conversation and ask only if unclear
 
 **Input**: Optional context for the work: free text, GitHub issue/PR, or another URL.
-**Provided arguments**: $@
 
 ## Behavior
 
@@ -57,3 +56,5 @@ Use the optional argument after `/lwot` as the thing we should work from. It may
 - `/lwot https://github.com/owner/repo/issues/123`
 - `/lwot https://github.com/owner/repo/pull/456`
 - `/lwot https://example.com/spec-notes`
+
+**Provided arguments**: $@
