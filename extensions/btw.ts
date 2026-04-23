@@ -32,6 +32,7 @@ import {
 
 const BTW_ENTRY_TYPE = "btw-thread-entry";
 const BTW_RESET_TYPE = "btw-thread-reset";
+const BTW_IMPORT_TYPE = "btw-import-context";
 const TRUNCATED_TOOL_CALL_SUFFIX = "...";
 
 const BTW_SYSTEM_PROMPT = [
@@ -60,6 +61,12 @@ type BtwDetails = {
 
 type BtwResetDetails = {
 	timestamp: number;
+};
+
+type BtwImportDetails = {
+	messages: Message[];
+	timestamp: number;
+	messageCount: number;
 };
 
 type OverlayRuntime = {
@@ -146,8 +153,12 @@ function getLastAssistantMessage(session: AgentSession): AssistantMessage | null
 	return null;
 }
 
-function buildSeedMessages(thread: BtwDetails[]): Message[] {
+function buildSeedMessages(thread: BtwDetails[], importedContext: Message[] | null): Message[] {
 	const seed: Message[] = [];
+
+	if (importedContext) {
+		seed.push(...importedContext);
+	}
 
 	for (const item of thread) {
 		seed.push(
@@ -346,7 +357,7 @@ export default function (pi: ExtensionAPI) {
 	let overlayRuntime: OverlayRuntime | null = null;
 	let activeSideSession: SideSessionRuntime | null = null;
 	let overlayRefreshTimer: ReturnType<typeof setTimeout> | null = null;
-	let importedContextSection: string | null = null;
+	let importedContextMessages: Message[] | null = null;
 	let importedContextTimestamp: number | null = null;
 	let importedContextMessageCount = 0;
 
@@ -400,15 +411,34 @@ export default function (pi: ExtensionAPI) {
 		return messages.filter((msg) => msg.role !== "toolResult");
 	}
 
-	function formatImportedContextSection(messages: Message[], timestamp: number): string {
+	function buildImportedContextMessages(messages: Message[], timestamp: number): Message[] {
 		const MAX_CHARS = 15000;
-		const dateStr = new Date(timestamp).toISOString();
-		const header = `<imported-main-context timestamp="${dateStr}">\nSnapshot of the main conversation imported at your request. Use as reference for this BTW discussion.\n\n`;
-		const footer = `</imported-main-context>`;
-		const TRUNCATED_MARKER = "[...older context omitted...]\n\n";
+		const markerTimestamp = Math.max(0, timestamp - 2);
+		const startMarker: Message = {
+			role: "user",
+			content: [{
+				type: "text",
+				text: `Imported frozen snapshot from the main session at ${new Date(timestamp).toISOString()}. The following messages are reference context for BTW and stay frozen until you refresh or reset BTW.`,
+			}],
+			timestamp: markerTimestamp,
+		};
+		const endMarker: Message = {
+			role: "user",
+			content: [{
+				type: "text",
+				text: "End of imported main-session snapshot. Continue the BTW side conversation below.",
+			}],
+			timestamp: Math.max(0, timestamp - 1),
+		};
+		const truncatedMarker: Message = {
+			role: "user",
+			content: [{ type: "text", text: "[...older imported context omitted...]" }],
+			timestamp: markerTimestamp,
+		};
 
-		// Build each message as a standalone block string (oldest first)
-		const blocks: string[] = [];
+		const normalizedBlocks: Message[] = [];
+		let bodyChars = 0;
+
 		for (const msg of messages) {
 			if (msg.role === "user") {
 				const content = (msg as { role: "user"; content: string | Array<{ type: string; text?: string }> }).content;
@@ -420,46 +450,91 @@ export default function (pi: ExtensionAPI) {
 								.map((p) => p.text ?? "")
 								.join("\n")
 								.trim();
-				if (text) {
-					blocks.push(`[User]: ${text}\n`);
+				if (!text) {
+					continue;
 				}
-			} else if (msg.role === "assistant") {
-				const assistantMsg = msg as AssistantMessage;
-				const lines: string[] = [];
-				for (const part of assistantMsg.content) {
-					if (part.type === "text") {
-						const textPart = part as { type: "text"; text: string };
-						if (textPart.text.trim()) {
-							lines.push(textPart.text.trim());
-						}
-					} else if (part.type === "toolCall") {
-						const tc = part as { type: "toolCall"; name: string; arguments: Record<string, unknown> };
-						const argSummary = formatToolArgs(tc.name, tc.arguments);
-						lines.push(`[Tool: ${tc.name}${argSummary ? ` ${argSummary}` : ""}]`);
+				normalizedBlocks.push({
+					role: "user",
+					content: [{ type: "text", text }],
+					timestamp: msg.timestamp,
+				});
+				bodyChars += text.length;
+				continue;
+			}
+
+			if (msg.role !== "assistant") {
+				continue;
+			}
+
+			const assistantMsg = msg as AssistantMessage;
+			const lines: string[] = [];
+			for (const part of assistantMsg.content) {
+				if (part.type === "text") {
+					if (part.text.trim()) {
+						lines.push(part.text.trim());
 					}
-					// Skip "thinking" parts
-				}
-				const text = lines.join("\n").trim();
-				if (text) {
-					blocks.push(`[Assistant]: ${text}\n`);
+				} else if (part.type === "toolCall") {
+					const argSummary = formatToolArgs(part.name, part.arguments);
+					lines.push(`[Tool: ${part.name}${argSummary ? ` ${argSummary}` : ""}]`);
 				}
 			}
+			const text = lines.join("\n").trim();
+			if (!text) {
+				continue;
+			}
+			normalizedBlocks.push({
+				role: "assistant",
+				content: [{ type: "text", text }],
+				provider: assistantMsg.provider,
+				model: assistantMsg.model,
+				api: assistantMsg.api,
+				usage:
+					assistantMsg.usage ??
+					{
+						input: 0,
+						output: 0,
+						cacheRead: 0,
+						cacheWrite: 0,
+						totalTokens: 0,
+						cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+					},
+				stopReason: "stop",
+				timestamp: assistantMsg.timestamp,
+			});
+			bodyChars += text.length;
 		}
 
-		// Drop oldest blocks until header + body + footer fits within MAX_CHARS.
-		// This keeps the newest (most relevant) messages when truncation is needed.
-		let truncated = false;
-		while (blocks.length > 0) {
-			const body = (truncated ? TRUNCATED_MARKER : "") + blocks.join("\n");
-			if (header.length + body.length + footer.length <= MAX_CHARS) {
+		const markerChars =
+			(startMarker.content as Array<{ type: "text"; text: string }>)[0].text.length +
+			(endMarker.content as Array<{ type: "text"; text: string }>)[0].text.length +
+			(truncatedMarker.content as Array<{ type: "text"; text: string }>)[0].text.length;
+		const originalNormalizedCount = normalizedBlocks.length;
+		while (normalizedBlocks.length > 0 && bodyChars + markerChars > MAX_CHARS) {
+			const removed = normalizedBlocks.shift();
+			if (!removed) {
 				break;
 			}
-			blocks.shift();
-			truncated = true;
+			const removedText =
+				removed.role === "user"
+					? typeof removed.content === "string"
+						? removed.content
+						: removed.content
+								.filter((part): part is { type: "text"; text: string } => part.type === "text")
+								.map((part) => part.text)
+								.join("\n")
+					: removed.content
+							.filter((part): part is { type: "text"; text: string } => part.type === "text")
+							.map((part) => part.text)
+							.join("\n");
+			bodyChars -= removedText.length;
 		}
 
-		const body = (truncated ? TRUNCATED_MARKER : "") + blocks.join("\n");
-		return header + body + footer;
+		const importedMessages: Message[] = [startMarker];
+		if (normalizedBlocks.length < originalNormalizedCount) {
+			importedMessages.push(truncatedMarker);
+		}
+		importedMessages.push(...normalizedBlocks, endMarker);
+		return importedMessages;
 	}
 
 	function renderToolCallLines(toolCalls: ToolCallInfo[], theme: ExtensionContext["ui"]["theme"], width: number): string[] {
@@ -490,7 +565,7 @@ export default function (pi: ExtensionAPI) {
 		const lines: string[] = [];
 
 		// Show import marker at top when context is imported
-		if (importedContextSection !== null && importedContextTimestamp !== null) {
+		if (importedContextMessages !== null && importedContextTimestamp !== null) {
 			const time = new Date(importedContextTimestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 			const countStr = importedContextMessageCount > 0 ? ` · ${importedContextMessageCount} msgs` : "";
 			lines.push(theme.fg("dim", `↑ context from main session (${time}${countStr})`));
@@ -501,7 +576,7 @@ export default function (pi: ExtensionAPI) {
 			lines.push(
 				theme.fg(
 					"dim",
-					importedContextSection !== null
+					importedContextMessages !== null
 						? "Main session context imported. Ask a question below."
 						: "No BTW messages yet. Type a question below.",
 				),
@@ -610,10 +685,16 @@ export default function (pi: ExtensionAPI) {
 			}
 
 			const timestamp = Date.now();
-			const section = formatImportedContextSection(filtered, timestamp);
-			importedContextSection = section;
+			const importedMessages = buildImportedContextMessages(filtered, timestamp);
+			importedContextMessages = importedMessages;
 			importedContextTimestamp = timestamp;
 			importedContextMessageCount = filtered.length;
+			const details: BtwImportDetails = {
+				messages: importedMessages,
+				timestamp,
+				messageCount: filtered.length,
+			};
+			pi.appendEntry(BTW_IMPORT_TYPE, details);
 
 			await disposeSideSession();
 			syncOverlay();
@@ -630,7 +711,7 @@ export default function (pi: ExtensionAPI) {
 			return;
 		}
 
-		const isRefresh = importedContextSection !== null;
+		const isRefresh = importedContextMessages !== null;
 		setOverlayStatus(isRefresh ? "Refreshing imported context..." : "Importing context...");
 
 		const success = await performImport(ctx);
@@ -638,7 +719,7 @@ export default function (pi: ExtensionAPI) {
 			setOverlayStatus(isRefresh ? "Context refreshed." : "Context imported. Ask a question below.");
 			notify(ctx, isRefresh ? "BTW context refreshed." : "Main session context imported into BTW.", "info");
 		} else {
-			setOverlayStatus(importedContextSection !== null ? "Context refresh failed. Previous import still active." : "Ready");
+			setOverlayStatus(importedContextMessages !== null ? "Context refresh failed. Previous import still active." : "Ready");
 		}
 
 		syncOverlay();
@@ -680,7 +761,7 @@ export default function (pi: ExtensionAPI) {
 		pendingError = null;
 		pendingToolCalls = [];
 		sideBusy = false;
-		importedContextSection = null;
+		importedContextMessages = null;
 		importedContextTimestamp = null;
 		importedContextMessageCount = 0;
 		setOverlayDraft("");
@@ -704,7 +785,7 @@ export default function (pi: ExtensionAPI) {
 		cancelledSideRequestId = null;
 		overlayStatus = "Ready";
 		overlayDraft = "";
-		importedContextSection = null;
+		importedContextMessages = null;
 		importedContextTimestamp = null;
 		importedContextMessageCount = 0;
 		const branch = ctx.sessionManager.getBranch();
@@ -727,6 +808,15 @@ export default function (pi: ExtensionAPI) {
 				}
 				thread.push(details);
 			}
+			if (entry.customType === BTW_IMPORT_TYPE) {
+				const details = entry.data as BtwImportDetails | undefined;
+				if (!details?.messages || !details.timestamp) {
+					continue;
+				}
+				importedContextMessages = details.messages;
+				importedContextTimestamp = details.timestamp;
+				importedContextMessageCount = details.messageCount;
+			}
 		}
 
 		syncOverlay();
@@ -737,20 +827,15 @@ export default function (pi: ExtensionAPI) {
 			return null;
 		}
 
-		const appendSP: string[] =
-			importedContextSection !== null
-				? [BTW_SYSTEM_PROMPT, importedContextSection]
-				: [BTW_SYSTEM_PROMPT];
-
 		const { session } = await createAgentSession({
 			sessionManager: SessionManager.inMemory(ctx.cwd),
 			model: ctx.model,
 			modelRegistry: ctx.modelRegistry as AgentSession["modelRegistry"],
 			thinkingLevel: pi.getThinkingLevel() as SessionThinkingLevel,
-			resourceLoader: createBtwResourceLoader(ctx, appendSP),
+			resourceLoader: createBtwResourceLoader(ctx),
 		});
 
-		const seedMessages = buildSeedMessages(thread);
+		const seedMessages = buildSeedMessages(thread, importedContextMessages);
 		if (seedMessages.length > 0) {
 			session.agent.state.messages = seedMessages as typeof session.agent.state.messages;
 		}
