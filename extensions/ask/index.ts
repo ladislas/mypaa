@@ -83,8 +83,20 @@ export default function askExtension(pi: ExtensionAPI): void {
 	}
 
 	pi.registerCommand("ask", {
-		description: "Toggle ask mode: discuss and ask questions without triggering any changes",
-		handler: async (_args, ctx) => toggleAskMode(ctx),
+		description: "Toggle ask mode or ask a question in discussion mode",
+		handler: async (args, ctx) => {
+			const question = args?.trim();
+			if (!question) {
+				toggleAskMode(ctx);
+				return;
+			}
+
+			if (!askModeEnabled) {
+				toggleAskMode(ctx);
+			}
+
+			pi.sendUserMessage(question);
+		},
 	});
 
 	// When ask mode is off, remove the extension's hidden ask-mode injections
