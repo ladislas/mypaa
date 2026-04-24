@@ -12,5 +12,5 @@
 
 ## 3. Verification
 
-- [ ] 3.1 Run `npm test` and fix any regressions caused by the `/context` refactor and UX changes.
-- [ ] 3.2 Run `npm run typecheck` and verify the final `extensions/context/` layout still follows the repository's Pi extension safety rules.
+- [x] 3.1 Run `npm test` and fix any regressions caused by the `/context` refactor and UX changes.
+- [x] 3.2 Run `npm run typecheck` and verify the final `extensions/context/` layout still follows the repository's Pi extension safety rules.

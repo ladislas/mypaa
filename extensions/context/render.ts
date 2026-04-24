@@ -45,7 +45,13 @@ function renderBar(theme: ThemeLike, segments: BarSegment[], total: number, widt
 		assigned += 1;
 	}
 	while (assigned > barWidth) {
-		const segment = sizedSegments.findLast((item) => item.columns > 0);
+		let segment = undefined as (typeof sizedSegments)[number] | undefined;
+		for (let index = sizedSegments.length - 1; index >= 0; index -= 1) {
+			if (sizedSegments[index]!.columns > 0) {
+				segment = sizedSegments[index];
+				break;
+			}
+		}
 		if (!segment) break;
 		segment.columns -= 1;
 		assigned -= 1;
