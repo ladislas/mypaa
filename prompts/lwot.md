@@ -50,6 +50,7 @@ Use the optional argument after `/lwot` as the thing we should work from. It may
 6. **Do the work**
    - Only start implementation once you have either user confirmation or a truly straightforward request that is clearly asking for execution now.
    - If Step 2 flagged a protected branch, create and switch to a properly named branch now, before touching any files. Use the repository naming convention (`<firstname>/<type>/<topic-more_info>`, where type is one of `feature`, `bugfix`, or `release`) with a topic slug derived from the work context gathered in Steps 3–4.
+   - For meaningful completed slices of work, create atomic commits during implementation rather than waiting until the very end.
    - Keep changes minimal and directly tied to the request.
    - Match existing style and avoid unrelated refactors.
    - Use GitHub context and linked URLs as supporting material, not as permission to expand scope.
