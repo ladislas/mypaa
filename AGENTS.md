@@ -42,6 +42,26 @@ Always create a branch — keep `main` clean.
 1. `git checkout main`
 2. `git mnoff <branch-name>`
 
+## Pi Extensions
+
+> **Auto-discovery hazard**: Pi treats every `.ts` or `.js` file directly under `extensions/` as an extension entrypoint and tries to load it. A helper module placed there will break at startup.
+
+Rules to follow every time extension code is touched:
+
+- **Top-level `.ts` and `.js` files only for real entrypoints.** Do not put helpers, utilities, or shared modules directly under `extensions/`.
+- **One directory per multi-file extension.** Use `extensions/<name>/index.ts` or `extensions/<name>/index.js` as the entrypoint and keep all sibling modules inside that directory:
+
+  ```text
+  extensions/<name>/index.ts       ← entrypoint (or index.js)
+  extensions/<name>/helper.ts      ← safe, not auto-discovered
+  extensions/<name>/helper.test.mjs
+  ```
+
+- **Colocate tests** inside the extension directory, not at a separate top-level location.
+- What looks like a normal TypeScript refactor (extracting a helper file) is **unsafe** here if the file lands at `extensions/` top level.
+
+For deeper guidance on creating or refactoring extensions, load `skills/pi-extension/SKILL.md`.
+
 ## OpenSpec
 
 - Use OpenSpec in this repo for meaningful multi-step work, not for tiny obvious edits.
