@@ -65,6 +65,20 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
+## 5. Prefer Cohesive Module Boundaries
+
+**Optimize for localized understanding and edits.**
+
+When structure allows it:
+
+- Favor cohesive, well-named modules over giant files.
+- Keep one responsibility per file/module when practical so changes can stay local.
+- Prefer boundaries that let one change touch a small, relevant surface area.
+- Avoid over-fragmentation: don't split one concept across many tiny wrapper files or layers of indirection.
+- Use descriptive file and symbol names so the right code is easy to find.
+
+The test: could a focused change be understood and implemented by reading a small number of clearly named files? If not, simplify the structure.
+
 ---
 
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, clarifying questions come before implementation rather than after mistakes, and changes stay local to a small, clearly named surface area.
