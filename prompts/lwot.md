@@ -23,11 +23,10 @@ Use the optional argument after `/lwot` as the thing we should work from. It may
    - If no argument is provided, infer what "that" refers to from the conversation.
    - If it is still unclear, ask a concise clarifying question before proceeding.
 
-2. **Check branch safety before repository changes**
-   - Before making edits, check the current git branch.
-   - Treat `main`, the repository default branch, and any explicitly protected branch as branches you should not work on directly.
-   - If you are on one of those branches, create and switch to a new branch that follows the repository naming convention before editing files.
-   - If you are already on a non-protected feature branch, continue work there.
+2. **Check branch safety**
+   - Check the current git branch and note whether it is a protected/default branch (`main` or equivalent).
+   - This is a read-only check only — do not create or switch branches yet.
+   - If already on a non-protected feature branch, note that and continue.
 
 3. **Gather the minimum context needed**
    - **Free text**: restate the goal in your own words and inspect the repository as needed.
@@ -50,6 +49,7 @@ Use the optional argument after `/lwot` as the thing we should work from. It may
 
 6. **Do the work**
    - Only start implementation once you have either user confirmation or a truly straightforward request that is clearly asking for execution now.
+   - If Step 2 flagged a protected branch, create and switch to a properly named branch now, before touching any files. Use the repository naming convention (`<firstname>/<type>/<topic-more_info>`, where type is one of `feature`, `bugfix`, or `release`) with a topic slug derived from the work context gathered in Steps 3–4.
    - Keep changes minimal and directly tied to the request.
    - Match existing style and avoid unrelated refactors.
    - Use GitHub context and linked URLs as supporting material, not as permission to expand scope.
