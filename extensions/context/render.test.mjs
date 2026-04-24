@@ -67,9 +67,9 @@ test("renders plain text context summary from extracted helpers", () => {
 test("renders loaded skills distinctly in the TUI view helper", () => {
 	const lines = buildViewLines(theme, viewData, 80);
 	assert.equal(lines[0], "<muted>Window: </muted><text>~900 / 4,000</text><muted>  (22.5% used, ~3,100 left)</muted>");
-	assert.match(lines[1], /<dim>used<\/dim><accent>█<\/accent> <dim>free<\/dim><dim>█<\/dim>/);
+	assert.match(lines[1], /<dim>used <\/dim><accent>█<\/accent> <dim>free <\/dim><dim>█<\/dim>/);
 	assert.equal(lines[2], "<muted>Used: </muted><text>~900 tok (system ~250 · tools ~300 · convo ~350)</text>");
-	assert.match(lines[3], /<dim>system<\/dim><accent>█<\/accent> <dim>tools<\/dim><warning>█<\/warning> <dim>convo<\/dim><success>█<\/success>/);
+	assert.match(lines[3], /<dim>system <\/dim><accent>█<\/accent> <dim>tools <\/dim><warning>█<\/warning> <dim>convo <\/dim><success>█<\/success>/);
 	assert.equal(lines[5], "<muted>System: </muted><text>~250 tok (agent-file content ~120)</text>");
 	assert.equal(lines[6], "<muted>Tools: </muted><text>~300 tok (4 active)</text>");
 	assert.equal(lines[7], "<muted>Agent files (2): </muted><text>./AGENTS.md, ./nested/CLAUDE.md</text>");

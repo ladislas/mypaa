@@ -152,10 +152,10 @@ export function buildViewLines(theme: ThemeLike, data: ContextViewData, width: n
 				barWidth,
 			) +
 				" " +
-				dim("used") +
+				dim("used ") +
 				theme.fg("accent", "█") +
 				" " +
-				dim("free") +
+				dim("free ") +
 				theme.fg("dim", "█"),
 		);
 		lines.push(muted("Used: ") + text(formatUsedSummary(data.usage)));
@@ -171,13 +171,13 @@ export function buildViewLines(theme: ThemeLike, data: ContextViewData, width: n
 				barWidth,
 			) +
 				" " +
-				dim("system") +
+				dim("system ") +
 				theme.fg("accent", "█") +
 				" " +
-				dim("tools") +
+				dim("tools ") +
 				theme.fg("warning", "█") +
 				" " +
-				dim("convo") +
+				dim("convo ") +
 				theme.fg("success", "█"),
 		);
 	}
