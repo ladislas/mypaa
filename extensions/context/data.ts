@@ -317,11 +317,11 @@ function estimateSkillIndexTokensByGroup(skillIndex: SkillIndexEntry[]): {
 
 	for (const skill of skillIndex) {
 		const entryTokens = estimateTokens(formatSkillIndexEntry(skill));
-		if (skill.sourceInfo.origin === "package") {
+		if (skill.sourceInfo?.origin === "package") {
 			packageTokens += entryTokens;
 			continue;
 		}
-		if (skill.sourceInfo.scope === "user") {
+		if (skill.sourceInfo?.scope === "user") {
 			globalTokens += entryTokens;
 			continue;
 		}
@@ -343,8 +343,8 @@ async function buildSystemBreakdown(
 	agentFiles: Array<{ path: string; content: string; tokens: number }>,
 	skillIndex: SkillIndexEntry[],
 	hasReadTool: boolean,
+	sharedAgentsContent: string,
 ): Promise<{ breakdown: ContextSystemBreakdownData; agentFiles: ContextPathTokens[] }> {
-	const sharedAgentsContent = await loadSharedAgents();
 	const sharedInstructionsPrompt = sharedAgentsContent ? formatSharedAgentsSystemPrompt(sharedAgentsContent) : "";
 	const effectiveSystemPrompt = ensureSharedInstructionsInPrompt(systemPrompt, sharedInstructionsPrompt);
 	const totalTokens = estimateTokens(effectiveSystemPrompt);
@@ -390,7 +390,7 @@ async function buildSystemBreakdown(
 		agentFiles: agentFileEntries,
 		breakdown: {
 			totalTokens,
-			piInstructionsTokens: Math.max(0, totalTokens - ((sharedInstructions?.tokens ?? 0) + agentFileEntries.reduce((total, file) => total + file.tokens, 0) + skillIndexGroupTokens.packageTokens + skillIndexGroupTokens.globalTokens + skillIndexGroupTokens.projectTokens)),
+			piInstructionsTokens: Math.max(0, totalTokens - knownTokens),
 			sharedInstructions,
 			packageSkillsIndexTokens: skillIndexGroupTokens.packageTokens,
 			globalSkillsIndexTokens: skillIndexGroupTokens.globalTokens,
@@ -435,7 +435,7 @@ export async function buildContextViewData(
 	const systemPrompt = baseSystemPrompt ? ensureSharedInstructionsInPrompt(baseSystemPrompt, sharedInstructionsPrompt) : baseSystemPrompt;
 	const systemPromptTokens = systemPrompt ? estimateTokens(systemPrompt) : 0;
 	const systemBreakdownResult = systemPrompt
-		? await buildSystemBreakdown(ctx.cwd, systemPrompt, projectContextFiles, skillIndex, activeToolNames.includes("read"))
+		? await buildSystemBreakdown(ctx.cwd, systemPrompt, projectContextFiles, skillIndex, activeToolNames.includes("read"), sharedAgentsContent)
 		: null;
 	const systemBreakdown = systemBreakdownResult?.breakdown ?? null;
 	const agentFiles = systemBreakdownResult?.agentFiles ?? [];

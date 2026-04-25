@@ -121,19 +121,24 @@ test("renders plain text context summary from extracted helpers", () => {
 
 test("renders loaded skills and system breakdown distinctly in the TUI view helper", () => {
 	const lines = buildViewLines(theme, viewData, 80);
-	assert.equal(lines[1], "<muted>Window: </muted><text>~900 / 4,000</text><muted>  (22.5% used, ~3,100 left)</muted>");
-	assert.match(lines[2], /<dim>used <\/dim><accent>█<\/accent> <dim>free <\/dim><dim>█<\/dim>/);
-	assert.equal(lines[3], "<muted>Estimated used: </muted><text>~900 tok (system ~250 · skills ~120 · tools ~300 · convo ~230)</text>");
-	assert.match(lines[4], /<dim>system <\/dim><accent>█<\/accent> <dim>skills <\/dim><text>█<\/text> <dim>tools <\/dim><warning>█<\/warning> <dim>convo <\/dim><success>█<\/success>/);
-	assert.equal(lines[6], "<muted>Breakdown:</muted>");
-	assert.equal(lines[7], "<muted>- System total: </muted><text>~250 tok</text>");
-	assert.equal(lines[8], "<muted>  - Pi base + other system instructions: </muted><text>~60 tok</text>");
-	assert.equal(lines[9], "<muted>  - from shared root instructions: </muted><text>./shared/AGENTS.md (~40 tok)</text>");
-	assert.equal(lines[10], "<muted>  - from agent files: </muted><text>./AGENTS.md (~120 tok)</text>");
-	assert.equal(lines[11], "<muted>  - from package skills index: </muted><text>~10 tok</text>");
-	assert.equal(lines[12], "<muted>  - from project skills index: </muted><text>~20 tok</text>");
-	assert.equal(lines[13], "<muted>- Pi tool definitions: </muted><text>~300 tok (4 active)</text>");
-	assert.equal(lines[14], "<muted>- Context window delta: </muted><text>0 tok (estimated tok = runtime tok)</text>");
-	assert.equal(lines[16], "<muted>Extensions (2): </muted><text>answer.ts, context</text>");
-	assert.equal(lines[17], "<muted>Skills available (2): </muted><success>github (~120 tok)</success><muted>, </muted><muted>uv (not loaded)</muted>");
+	const find = (needle) => {
+		const line = lines.find((l) => l.includes(needle));
+		assert.ok(line !== undefined, `expected a line containing: ${needle}`);
+		return line;
+	};
+	assert.equal(find("Window:"), "<muted>Window: </muted><text>~900 / 4,000</text><muted>  (22.5% used, ~3,100 left)</muted>");
+	assert.match(find("<dim>used "), /<dim>used <\/dim><accent>█<\/accent> <dim>free <\/dim><dim>█<\/dim>/);
+	assert.equal(find("Estimated used:"), "<muted>Estimated used: </muted><text>~900 tok (system ~250 · skills ~120 · tools ~300 · convo ~230)</text>");
+	assert.match(find("<dim>system "), /<dim>system <\/dim><accent>█<\/accent> <dim>skills <\/dim><text>█<\/text> <dim>tools <\/dim><warning>█<\/warning> <dim>convo <\/dim><success>█<\/success>/);
+	assert.equal(find("Breakdown:"), "<muted>Breakdown:</muted>");
+	assert.equal(find("System total:"), "<muted>- System total: </muted><text>~250 tok</text>");
+	assert.equal(find("Pi base"), "<muted>  - Pi base + other system instructions: </muted><text>~60 tok</text>");
+	assert.equal(find("shared root"), "<muted>  - from shared root instructions: </muted><text>./shared/AGENTS.md (~40 tok)</text>");
+	assert.equal(find("agent files:"), "<muted>  - from agent files: </muted><text>./AGENTS.md (~120 tok)</text>");
+	assert.equal(find("package skills"), "<muted>  - from package skills index: </muted><text>~10 tok</text>");
+	assert.equal(find("project skills"), "<muted>  - from project skills index: </muted><text>~20 tok</text>");
+	assert.equal(find("Pi tool definitions:"), "<muted>- Pi tool definitions: </muted><text>~300 tok (4 active)</text>");
+	assert.equal(find("Context window delta:"), "<muted>- Context window delta: </muted><text>0 tok (estimated tok = runtime tok)</text>");
+	assert.equal(find("Extensions (2):"), "<muted>Extensions (2): </muted><text>answer.ts, context</text>");
+	assert.equal(find("Skills available (2):"), "<muted>Skills available (2): </muted><success>github (~120 tok)</success><muted>, </muted><muted>uv (not loaded)</muted>");
 });
