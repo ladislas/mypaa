@@ -62,6 +62,10 @@ Rules to follow every time extension code is touched:
 
 For deeper guidance on creating or refactoring extensions, load `skills/pi-extension/SKILL.md`.
 
+## Pi Skills
+
+For deeper guidance on creating, renaming, or refactoring repo-local skills in `skills/`, load `skills/pac-pi-skill/SKILL.md`.
+
 ## OpenSpec
 
 - Use OpenSpec in this repo for meaningful multi-step work, not for tiny obvious edits.
