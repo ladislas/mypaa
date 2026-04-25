@@ -60,7 +60,7 @@ Rules to follow every time extension code is touched:
 - **Colocate tests** inside the extension directory, not at a separate top-level location.
 - What looks like a normal TypeScript refactor (extracting a helper file) is **unsafe** here if the file lands at `extensions/` top level.
 
-For deeper guidance on creating or refactoring extensions, load `skills/pi-extension/SKILL.md`.
+For deeper guidance on creating or refactoring extensions, load `skills/pac-pi-extension/SKILL.md`.
 
 ## Pi Skills
 

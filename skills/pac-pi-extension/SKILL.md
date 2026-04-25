@@ -1,5 +1,5 @@
 ---
-name: pi-extension
+name: pac-pi-extension
 description: "Create or refactor a Pi extension safely. Use when starting new extension work, adding helper modules to an existing extension, or colocating tests. Covers layout, modularization, tests, and CI alignment."
 license: MIT
 compatibility: Pi coding agent; Node.js project with npm test / npm run typecheck.
@@ -72,7 +72,7 @@ Patterns in Pi evolve. Before locking in imports or API usage:
 1. Check the docs and examples that ship with the installed `@mariozechner/pi-coding-agent` version in this repo first (for example under `node_modules/@mariozechner/pi-coding-agent/docs/` and `.../examples/`).
 2. Verify which packages and imports are canonical for that installed version — do not rely on memory.
 3. Treat upstream `pi-mono` as an optional cross-check only when you are intentionally preparing for, or evaluating, a version bump.
-4. Use the `librarian` skill to cache a local copy of upstream `pi-mono` only for that upgrade-oriented comparison.
+4. Use the `pac-librarian` skill to cache a local copy of upstream `pi-mono` only for that upgrade-oriented comparison.
 
 Implement only after confirming the patterns match the version pinned in this repo. Tooling drift has caused real bugs.
 

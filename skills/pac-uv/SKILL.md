@@ -1,5 +1,5 @@
 ---
-name: uv
+name: pac-uv
 description: "Use `uv` instead of pip/python/venv. Run scripts with `uv run script.py`, add deps with `uv add`, use inline script metadata for standalone scripts."
 ---
 
