@@ -377,17 +377,17 @@ class BtwOverlay extends Container implements Focusable {
 	private frameLine(content: string, innerWidth: number): string {
 		const truncated = truncateToWidth(content, innerWidth, "");
 		const padding = Math.max(0, innerWidth - visibleWidth(truncated));
-		return `${this.theme.fg("borderMuted", "│")}${truncated}${" ".repeat(padding)}${this.theme.fg("borderMuted", "│")}`;
+		return `${this.theme.fg("border", "│")}${truncated}${" ".repeat(padding)}${this.theme.fg("border", "│")}`;
 	}
 
 	private borderLine(innerWidth: number, edge: "top" | "bottom"): string {
 		const left = edge === "top" ? "┌" : "└";
 		const right = edge === "top" ? "┐" : "┘";
-		return this.theme.fg("borderMuted", `${left}${"─".repeat(innerWidth)}${right}`);
+		return this.theme.fg("border", `${left}${"─".repeat(innerWidth)}${right}`);
 	}
 
 		override render(width: number): string[] {
-		const dialogWidth = Math.max(56, Math.min(width, Math.floor(width * 0.9)));
+		const dialogWidth = width - 6;
 		const innerWidth = Math.max(40, dialogWidth - 2);
 		const terminalRows = process.stdout.rows ?? 30;
 		const dialogHeight = Math.max(16, Math.min(30, Math.floor(terminalRows * 0.75)));
@@ -427,7 +427,7 @@ class BtwOverlay extends Container implements Focusable {
 			this.borderLine(innerWidth, "top"),
 			this.frameLine(this.theme.fg("accent", this.theme.bold(" BTW side chat ")), innerWidth),
 			this.frameLine(this.theme.fg("dim", `Isolated side conversation. ${importHint}`), innerWidth),
-			this.theme.fg("borderMuted", `├${"─".repeat(innerWidth)}┤`),
+			this.theme.fg("border", `├${"─".repeat(innerWidth)}┤`),
 		];
 
 		if (linesAbove > 0) {
@@ -443,7 +443,7 @@ class BtwOverlay extends Container implements Focusable {
 			lines.push(this.frameLine(this.theme.fg("dim", `↓ ${linesBelow} more line${linesBelow === 1 ? "" : "s"} below`), innerWidth));
 		}
 
-		lines.push(this.theme.fg("borderMuted", `├${"─".repeat(innerWidth)}┤`));
+		lines.push(this.theme.fg("border", `├${"─".repeat(innerWidth)}┤`));
 		lines.push(this.frameLine(this.theme.fg("warning", status), innerWidth));
 		for (const line of editorLines) {
 			lines.push(this.frameLine(line, innerWidth));
@@ -456,7 +456,7 @@ class BtwOverlay extends Container implements Focusable {
 		);
 		lines.push(this.borderLine(innerWidth, "bottom"));
 
-		return lines;
+		return ["", ...lines.map((l) => `   ${l}`), ""];
 	}
 }
 
@@ -1248,7 +1248,7 @@ export default function (pi: ExtensionAPI) {
 				{
 					overlay: true,
 					overlayOptions: {
-						width: "80%",
+						width: "88%",
 						minWidth: 72,
 						maxHeight: "78%",
 						anchor: "top-center",
