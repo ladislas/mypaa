@@ -449,10 +449,8 @@ class BtwOverlay extends Container implements Focusable {
 			lines.push(this.frameLine(line, innerWidth));
 		}
 		lines.push(
-			this.frameLine(
-				this.theme.fg("dim", "PgUp/PgDn scroll · Enter submit · Shift+Enter newline · /import import/refresh · Esc close"),
-				innerWidth,
-			),
+			this.frameLine(this.theme.fg("dim", "PgUp/PgDn scroll · Enter submit · Shift+Enter newline"), innerWidth),
+			this.frameLine(this.theme.fg("dim", "/import import/refresh · Esc close"), innerWidth),
 		);
 		lines.push(this.borderLine(innerWidth, "bottom"));
 
