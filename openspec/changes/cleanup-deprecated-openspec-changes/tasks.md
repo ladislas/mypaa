@@ -1,7 +1,7 @@
 ## 1. Document archive-retention guidance
 
-- [ ] 1.1 Update the active OpenSpec workflow guidance to say archived changes are kept only when they remain safe and useful as repository context
-- [ ] 1.2 Keep the guidance focused on pruning misleading deprecated history rather than rewriting the whole OpenSpec process
+- [x] 1.1 Update the active OpenSpec workflow guidance to say archived changes are kept only when they remain safe and useful as repository context
+- [x] 1.2 Keep the guidance focused on pruning misleading deprecated history rather than rewriting the whole OpenSpec process
 
 ## 2. Prune misleading archived changes
 
