@@ -318,7 +318,18 @@ test("session history restores branch-local model and thinking for resume, undo,
 	assert.deepEqual(context.model, { provider: "test", modelId: "cheap" });
 	assert.equal(context.thinkingLevel, "off");
 
-	rewriteSession(sessionManager);
+	// Trigger pi's natural persistence: a session is only written to disk after the first
+	// assistant message. Appending one here flushes all prior entries to disk so we can
+	// open the session file with SessionManager.open().
+	sessionManager.appendMessage({
+		role: "assistant",
+		content: [{ type: "text", text: "ok" }],
+		provider: "test",
+		model: "cheap",
+		usage: { inputTokens: 1, outputTokens: 1, cacheReadTokens: 0, cacheWriteTokens: 0 },
+		stopReason: "stop",
+		timestamp: Date.now(),
+	});
 	const resumed = SessionManager.open(sessionManager.getSessionFile(), workspace.sessionDir, workspace.projectDir);
 	context = resumed.buildSessionContext();
 	assert.deepEqual(context.model, { provider: "test", modelId: "cheap" });

@@ -205,7 +205,14 @@ async function writeSettingsFile(settingsPath: string, settings: JsonObject | un
 	}
 
 	await fs.mkdir(path.dirname(settingsPath), { recursive: true });
-	await fs.writeFile(settingsPath, nextContent, "utf8");
+	const tmpPath = `${settingsPath}.tmp`;
+	try {
+		await fs.writeFile(tmpPath, nextContent, "utf8");
+		await fs.rename(tmpPath, settingsPath);
+	} catch (error) {
+		await fs.rm(tmpPath).catch(() => {});
+		throw error;
+	}
 }
 
 function isMissingFileError(error: unknown): boolean {

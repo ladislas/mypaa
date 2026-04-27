@@ -70,8 +70,8 @@ export default function modelScopingExtension(pi: ExtensionAPI) {
 			return;
 		}
 
-		state.lastEntryIds = nextEntryIds;
 		await restoreScopedModelDefaults(state.cwd, state.savedDefaults, state.agentDir);
+		state.lastEntryIds = nextEntryIds;
 		clearLastError(state);
 	}
 

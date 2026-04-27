@@ -1688,20 +1688,24 @@ Instructions:
 			clearReviewState(ctx);
 			let actionResult: EndReviewActionResult = "ok";
 
-			const switchResult = await ctx.switchSession(originSessionFile, {
-				withSession: async (originCtx) => {
-					try {
-						const result = await originCtx.navigateTree(originId, { summarize: false });
-						if (result.cancelled) {
-							actionResult = "cancelled";
-							originCtx.ui.notify("Navigation cancelled. Use /end-review to try again.", "info");
+			// Wrap switchSession so that an unexpected throw (e.g. missing session file, I/O error)
+			// restores review state and lets the user retry via /end-review, mirroring the cancelled path.
+			let switchResult: { cancelled: boolean };
+			try {
+				switchResult = await ctx.switchSession(originSessionFile, {
+					withSession: async (originCtx) => {
+						try {
+							const result = await originCtx.navigateTree(originId, { summarize: false });
+							if (result.cancelled) {
+								actionResult = "cancelled";
+								originCtx.ui.notify("Navigation cancelled. Use /end-review to try again.", "info");
+								return;
+							}
+						} catch (error) {
+							actionResult = "error";
+							originCtx.ui.notify(`Failed to return: ${error instanceof Error ? error.message : String(error)}`, "error");
 							return;
 						}
-					} catch (error) {
-						actionResult = "error";
-						originCtx.ui.notify(`Failed to return: ${error instanceof Error ? error.message : String(error)}`, "error");
-						return;
-					}
 
 					if (action === "returnOnly") {
 						if (notifySuccess) {
@@ -1730,7 +1734,18 @@ Instructions:
 						originCtx.ui.notify("Review complete! Returned and queued a follow-up to fix findings.", "info");
 					}
 				},
-			});
+				});
+			} catch (error) {
+				// switchSession threw unexpectedly (e.g. missing session file, I/O error).
+				// Restore review state so the user can retry with /end-review.
+				pi.appendEntry(REVIEW_STATE_TYPE, activeReviewState);
+				applyReviewState(ctx);
+				ctx.ui.notify(
+					`Failed to return to origin session: ${error instanceof Error ? error.message : String(error)}. Use /end-review to try again.`,
+					"error",
+				);
+				return "error";
+			}
 
 			if (switchResult.cancelled) {
 				pi.appendEntry(REVIEW_STATE_TYPE, activeReviewState);
