@@ -13,10 +13,10 @@
 
 ## 3. Workflow integration
 
-- [ ] 3.1 Update workflow code that currently relies on `pi.setModel(...)` for temporary model switching so it no longer leaks repo/global defaults
-- [ ] 3.2 Add a helper for creating or switching into a workflow session seeded with a chosen model/thinking pair
-- [ ] 3.3 Integrate the seeded-session helper into `/review` for review-session model selection
-- [ ] 3.4 Identify bounded helper workflows that can use direct helper-model calls and migrate the first consumer if it materially improves isolation
+- [x] 3.1 Update workflow code that currently relies on `pi.setModel(...)` for temporary model switching so it no longer leaks repo/global defaults
+- [x] 3.2 Add a helper for creating or switching into a workflow session seeded with a chosen model/thinking pair
+- [x] 3.3 Integrate the seeded-session helper into `/review` for review-session model selection
+- [x] 3.4 Identify bounded helper workflows that can use direct helper-model calls and migrate the first consumer if it materially improves isolation
 
 ## 4. Verification and documentation
 
