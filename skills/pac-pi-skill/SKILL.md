@@ -10,54 +10,55 @@ metadata:
 
 # Author a Pi skill for this repo
 
+Adapted for `mypac` from Matt Pocock's [`write-a-skill`](https://github.com/mattpocock/skills/tree/main/skills/productivity/write-a-skill) guidance.
+
 Load this skill whenever you are about to:
 
 - Create a new repo-owned skill under `skills/`
 - Rename an existing skill
-- Refactor a skill's layout, helper files, or references
+- Refactor a skill's layout, support files, or references
 
-## Verify the Pi skill contract first
+## Process
 
-Per the installed Pi docs, a skill is a directory containing `SKILL.md`, and the frontmatter `name` must match the parent directory exactly.
+1. **Gather requirements**
+   - What task does the skill cover?
+   - What concrete triggers should cause Pi to load it?
+   - Does it need only instructions, or also support files or scripts?
+2. **Draft the skill**
+   - Write `SKILL.md` with concise instructions.
+   - Add support files only when they make the skill clearer or more reliable.
+   - Keep skill-specific files inside the skill directory.
+3. **Review the change**
+   - Check naming, descriptions, references, and any renamed paths.
+   - Ask the user to confirm when the desired behavior or scope is still ambiguous.
+
+## Repo contract
+
+Per Pi's skill contract, a skill is a directory containing `SKILL.md`, and the frontmatter `name` must match the parent directory exactly.
 
 Use this shape:
 
 ```text
 skills/pac-<name>/
   SKILL.md
-  [helper files]
+  [support files]
 ```
 
-## Naming rules for this repo
+Rules for this repo:
 
-**Use the `pac-` prefix for every repo-owned skill.**
+- Use the `pac-` prefix for every repo-owned skill.
+- Do not use unprefixed local names like `github` or `uv`.
+- Keep all support files inside the skill directory.
+- When renaming a skill, update `AGENTS.md`, docs, prompts, tests, and sibling skills that reference it.
 
-Examples:
+## Description requirements
 
-- `skills/pac-github/SKILL.md`
-- `skills/pac-pi-extension/SKILL.md`
-- `skills/pac-pi-prompt/SKILL.md`
+The `description` is what Pi sees when deciding whether to load the skill, so make it specific.
 
-This avoids collisions with external skills that Pi may also discover.
+Write it in two parts:
 
-The skill frontmatter must match the directory name exactly:
-
-```yaml
----
-name: pac-<name>
-description: "What the skill does and when to use it."
----
-```
-
-Do not use unprefixed repo-local names like `github`, `uv`, or `pi-extension`.
-
-## Description guidance
-
-The `description` controls whether the model loads the skill, so write it as:
-
-- specific about the task
-- explicit about when to use the skill
-- narrow enough to avoid accidental invocation for unrelated work
+1. What the skill does
+2. `Use when ...` with concrete triggers, contexts, or file locations
 
 Good:
 
@@ -65,49 +66,40 @@ Good:
 description: "Author or update a Pi prompt file for this repo. Use when creating a new slash command or editing an existing prompt in prompts/."
 ```
 
-Poor:
+Bad:
 
 ```yaml
 description: "Helps with prompts."
 ```
 
-## Layout rules
+## When to add support files
 
-Keep all files for a skill inside that skill directory. Common patterns:
+Add support files when:
+
+- `SKILL.md` would otherwise become long or unfocused
+- examples or reference material are useful but not always needed
+- a deterministic helper script is more reliable than regenerated code
+
+Common layout:
 
 ```text
 skills/pac-<name>/
   SKILL.md
-  helper.sh
-  notes.md
-  examples/
+  REFERENCE.md
+  EXAMPLES.md
+  scripts/
 ```
-
-- Put helper scripts, notes, and examples inside the skill directory.
-- Reference sibling files with relative paths from `SKILL.md`.
-- Avoid scattering skill-specific files elsewhere in the repo unless the user explicitly asked for that design.
-
-## Renaming a skill safely
-
-When renaming a skill:
-
-1. Rename the directory so it matches the new skill name.
-2. Update the `name:` field in `SKILL.md` to the same value.
-3. Update repo references in `AGENTS.md`, docs, prompts, tests, and other skills.
-4. Verify no stale references remain.
-
-The directory name and `name:` field must stay in lockstep.
 
 ## Related guidance
 
 - If the work is about prompt templates under `prompts/`, also load `skills/pac-pi-prompt/SKILL.md`.
-- If the work is about Pi extensions under `extensions/`, load `skills/pac-pi-extension/SKILL.md`.
+- If the work is about Pi extensions under `extensions/`, also load `skills/pac-pi-extension/SKILL.md`.
 
-## Checklist before committing a skill change
+## Review checklist
 
-- [ ] Skill directory is named `skills/pac-<name>/`
-- [ ] `SKILL.md` exists and `name:` matches the directory name exactly
-- [ ] `description` says what the skill does and when to use it
-- [ ] Helper files stay inside the skill directory
-- [ ] References in `AGENTS.md`, docs, prompts, tests, and sibling skills are updated when renaming
-- [ ] The changed skill reads cleanly end-to-end and follows the installed Pi skills contract
+- [ ] Directory is named `skills/pac-<name>/`
+- [ ] `SKILL.md` exists and `name` matches the directory exactly
+- [ ] `description` states the capability and `Use when ...` triggers
+- [ ] Support files stay inside the skill directory
+- [ ] Renamed or moved skills have updated references
+- [ ] The skill reads cleanly end-to-end without extra speculation
