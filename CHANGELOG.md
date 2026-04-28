@@ -11,6 +11,7 @@ Versioned sections should match the Git tags and GitHub releases published for t
 ### Added
 
 - Added this changelog to track notable repository changes and future GitHub releases. ([#139](https://github.com/ladislas/mypac/issues/139))
+- Added a `/pac-slidedeck` extension command and `save_slidedeck` tool that generate presentation-style HTML decks under `~/.pi/agent/slidedecks/` instead of the repo workspace. ([#131](https://github.com/ladislas/mypac/issues/131))
 
 ### Changed
 
