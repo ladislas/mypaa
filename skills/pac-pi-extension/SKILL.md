@@ -16,6 +16,22 @@ Load this skill whenever you are about to:
 - Add a helper module or test to an existing extension
 - Refactor extension code that currently lives at `extensions/` top level
 
+## Process
+
+1. **Gather requirements**
+   - What surface are you adding or changing: command, tool, hook, UI, or background behavior?
+   - Is this a trivial single-file extension, or should it be a directory-based extension?
+   - What support modules or tests should be colocated with it?
+2. **Choose the layout**
+   - Default to a dedicated directory for anything non-trivial.
+   - Keep support files inside the extension directory.
+3. **Implement carefully**
+   - Keep the entrypoint focused on extension wiring as much as practical.
+   - Move parsing, rendering, state, or other reusable logic into sibling modules when that keeps the change local and easier to test.
+4. **Verify the result**
+   - Check imports against the installed Pi docs and examples for this repo's pinned version.
+   - Run the relevant tests, then run `npm test` and `npm run typecheck` before finishing meaningful extension work.
+
 ## The core hazard
 
 Pi auto-discovers every `.ts` or `.js` file directly under `extensions/` and loads it as an extension entrypoint. This means:
@@ -47,18 +63,22 @@ extensions/<name>/helper.test.mjs   ← test, colocated
 
 Never place helpers or tests directly under `extensions/`.
 
-## Structuring the code
+## When to split modules
 
-- Keep the entrypoint (`index.ts` or `index.js`) focused on **extension wiring** only: registering commands, tools, hooks.
-- Move state management, parsing logic, rendering helpers, and any non-trivial logic into **sibling modules** inside the extension directory.
-- This makes individual modules easier to test in isolation and keeps the entrypoint readable.
+Split logic into sibling modules when:
+
+- the entrypoint starts mixing wiring with parsing, state, rendering, or prompt-building logic
+- a pure helper can be tested in isolation
+- the same logic would otherwise be duplicated inside handlers or hooks
+
+Do not split files just for ceremony. The goal is to keep changes local and easy to understand.
 
 ## Tests
 
 - **Colocate tests** inside the extension directory, not in a separate top-level folder.
-- Name test files so Node's test runner discovers them (e.g., `*.test.mjs`).
-- Write tests early, especially when extracting helper logic — it is much harder to add them later.
-- Run the full suite before and after changes:
+- Name test files so Node's test runner discovers them (for example `*.test.mjs`).
+- Add or update focused tests when extracting helper logic or changing non-trivial behavior.
+- Run the full suite before and after meaningful extension changes:
 
   ```bash
   npm test
@@ -82,6 +102,7 @@ Implement only after confirming the patterns match the version pinned in this re
 - [ ] Multi-file extensions use `extensions/<name>/index.ts` or `extensions/<name>/index.js`
 - [ ] Helper modules live inside `extensions/<name>/`
 - [ ] Tests are colocated inside `extensions/<name>/`
+- [ ] Entry-point changes keep wiring and reusable logic separated as much as practical
 - [ ] `npm test` passes
 - [ ] `npm run typecheck` passes
 - [ ] Imports verified against the docs/examples for the installed Pi package version in this repo
