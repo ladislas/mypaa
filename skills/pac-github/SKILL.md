@@ -1,6 +1,6 @@
 ---
 name: pac-github
-description: "Interact with GitHub using the `gh` CLI. Use `gh issue`, `gh pr`, `gh run`, and `gh api` for issues, PRs, CI runs, and advanced queries."
+description: "Interact with GitHub using the `gh` CLI. Use when working with GitHub issues, pull requests, workflow runs, or API queries."
 ---
 
 # GitHub Skill

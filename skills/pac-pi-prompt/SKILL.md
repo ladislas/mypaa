@@ -14,14 +14,27 @@ Load this skill whenever you are about to:
 
 - Create a new prompt file under `prompts/`
 - Update or restructure an existing prompt
+- Rename a prompt-backed slash command
 
-## What a Pi prompt is
+## Process
+
+1. **Gather requirements**
+   - What should the command do?
+   - What arguments, if any, can `$@` contain?
+   - Is this command for planning, implementation, review, or another focused workflow?
+2. **Draft the prompt**
+   - Keep the static instructions precise and self-contained.
+   - Add `argument-hint` only when the command takes meaningful arguments.
+   - Place `$@` at the very end of the file.
+3. **Review the command**
+   - Check naming, frontmatter, argument placement, and any renamed command references.
+   - Test with a representative invocation or review the rendered prompt end-to-end.
+
+## Repo contract
 
 A prompt file is a Markdown file placed in `prompts/`. Pi exposes it as a slash command whose name matches the filename without the `.md` extension. For example, `prompts/pac-foo.md` becomes `/pac-foo`.
 
-## File naming
-
-**Use the `pac-` prefix for every repo-owned prompt.**
+Use the `pac-` prefix for every repo-owned prompt:
 
 ```text
 prompts/pac-<name>.md
@@ -40,8 +53,8 @@ argument-hint: "[optional hint shown when typing the command]"
 ---
 ```
 
-- `description` is required. Write it as an action-oriented sentence. It is the only thing the user sees in the command list, so it must be specific enough to distinguish this command from similar ones.
-- `argument-hint` is optional. Include it when the command takes meaningful arguments (e.g., `"[issue URL | todo ID | free text]"`). Omit it when the command takes no arguments.
+- `description` is required. Write it as a specific, action-oriented sentence that distinguishes this command from similar ones.
+- `argument-hint` is optional. Include it when the command takes meaningful arguments (for example `"[issue URL | todo ID | free text]"`). Omit it when the command takes no arguments.
 
 ## Argument placement — the caching rule
 
@@ -59,26 +72,35 @@ description: "..."
 
 The LLM caches the static prefix of a prompt. Moving the variable part (`$@`) to the end ensures that only the final token(s) change between invocations, maximising cache reuse and minimising cost. Placing `$@` in the middle or at the top breaks this: every invocation looks like a fresh prompt to the cache.
 
-Apply this rule even when you think the arguments will rarely vary. The cost is zero; the benefit accumulates over time.
-
 ## Prompt structure
 
 Keep the static body as precise as possible:
 
-1. **One-line intent** — restate what the command does in plain English, so the model has an unambiguous goal even without reading the description.
-2. **Input specification** — describe exactly what `$@` may contain and how to interpret it (free text, URL, todo ID, etc.).
-3. **Behavior steps** — numbered list of what the model should do, in order. Steps should be verifiable.
-4. **Examples** — include two or three representative invocations when the input format is non-obvious.
-5. **`$@` injection** — last line of the file.
-6. **Command-name references** — if the prompt body or docs mention the slash command explicitly, update those references when renaming the file.
+1. **One-line intent** — restate what the command does in plain English.
+2. **Input specification** — describe exactly what `$@` may contain and how to interpret it.
+3. **Behavior steps** — give the model verifiable steps in execution order.
+4. **Examples** — add a few representative invocations when the input shape is non-obvious.
+5. **`$@` injection** — make it the last line of the file.
+6. **Command-name references** — update slash-command references when renaming the file.
 
-Not all sections are required for every prompt. A simple one-shot command may need only intent + `$@`. Add sections only when they reduce ambiguity.
+Not every prompt needs every section. Keep simple commands simple, and add structure only when it reduces ambiguity.
 
-## Checklist before committing a new prompt
+## When to add examples or argument hints
+
+Add examples when:
+
+- the accepted input formats are easy to misuse
+- the command accepts several different kinds of inputs
+- a concrete invocation makes the expected behavior much clearer
+
+Add `argument-hint` when the command takes meaningful arguments. Skip it for no-argument prompts.
+
+## Review checklist
 
 - [ ] File is named `pac-<name>.md` and lives under `prompts/`
 - [ ] Frontmatter has a specific, action-oriented `description`
-- [ ] `argument-hint` is present if the command takes arguments
+- [ ] `argument-hint` is present only when the command takes arguments
 - [ ] `$@` appears only once and is the last thing in the file
 - [ ] Static instructions are complete and self-contained without `$@`
-- [ ] Command works end-to-end with at least one manual invocation or a review of the rendered output
+- [ ] Slash-command references were updated if the file was renamed
+- [ ] The command works end-to-end with at least one manual invocation or a review of the rendered output

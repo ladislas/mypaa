@@ -1,6 +1,6 @@
 ---
 name: pac-uv
-description: "Use `uv` instead of pip/python/venv. Run scripts with `uv run script.py`, add deps with `uv add`, use inline script metadata for standalone scripts."
+description: "Prefer `uv` for Python workflows in this repo. Use when running Python scripts, adding dependencies, or replacing pip/python/venv commands."
 ---
 
 # Use uv for Python workflows
