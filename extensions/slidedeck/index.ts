@@ -28,6 +28,12 @@ export default function slidedeckExtension(pi: ExtensionAPI): void {
 			slides: Type.Array(
 				Type.Object({
 					title: Type.String({ description: "Slide title" }),
+					eyebrow: Type.Optional(
+						Type.String({
+							description:
+								"Optional eyebrow label shown above the slide title (e.g. 'Problem', 'Solution'). Defaults to 'Slide N' when omitted.",
+						}),
+					),
 					body: Type.String({
 						description: "HTML fragment for the slide body. Do not include <html>, <head>, or <body>.",
 					}),

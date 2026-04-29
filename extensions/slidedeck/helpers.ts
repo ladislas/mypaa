@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 
 export type SlidedeckSlide = {
 	title: string;
+	eyebrow?: string;
 	body: string;
 };
 
@@ -613,9 +614,10 @@ export function renderSlidedeckHtml(options: {
 
 function renderSlide(slide: SlidedeckSlide, index: number, total: number): string {
 	const headingTag = index === 0 ? "h1" : "h2";
+	const eyebrow = slide.eyebrow ?? `Slide ${index + 1}`;
 	return [
 		`<section class=\"slide${index === 0 ? " active" : ""}\" id=\"slide-${index + 1}\">`,
-		`<div class=\"eyebrow\">Slide ${index + 1}</div>`,
+		`<div class=\"eyebrow\">${escapeHtml(eyebrow)}</div>`,
 		`<${headingTag} class=\"slide-title\">${escapeHtml(slide.title)}</${headingTag}>`,
 		slide.body,
 		"<div class=\"footer\">",
