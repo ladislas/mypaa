@@ -1,6 +1,11 @@
 ---
 name: pac-github
 description: "Interact with GitHub using the `gh` CLI. Use when working with GitHub issues, pull requests, workflow runs, or API queries."
+license: MIT
+compatibility: Git repository; gh CLI required.
+metadata:
+  author: mypac
+  stage: shared
 ---
 
 # GitHub Skill

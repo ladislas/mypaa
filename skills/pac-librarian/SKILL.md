@@ -1,6 +1,11 @@
 ---
 name: pac-librarian
 description: "Cache and refresh remote git repositories under ~/.cache/checkouts/<host>/<org>/<repo> so future references can reuse a local copy. Use this skill when the user points you to a remote git repository as reference or you encountered a remote git repo through other means."
+license: MIT
+compatibility: Pi coding agent; git and bash required.
+metadata:
+  author: mypac
+  stage: shared
 ---
 
 # Cache remote repository checkouts
