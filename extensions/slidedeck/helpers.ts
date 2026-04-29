@@ -225,7 +225,7 @@ ol {
 	color: var(--accent-2);
 }
 
-.badge.progress {
+.badge.in-progress {
 	background: rgba(138, 180, 255, 0.12);
 	border-color: rgba(138, 180, 255, 0.3);
 	color: var(--accent);
@@ -676,8 +676,8 @@ export function buildSlidedeckPrompt(input: string): string {
 		"**Numbered steps** (auto-counter list — apply `steps` class to `<ol>`)",
 		'<ol class="steps"><li><strong>Step name</strong><p>Description</p></li></ol>',
 		"",
-		"**Status badges** (inline pill — `.done`, `.progress`, or `.blocked` modifier)",
-		'<span class="badge done">Done</span>  <span class="badge progress">In progress</span>  <span class="badge blocked">Blocked</span>',
+		"**Status badges** (inline pill — `.done`, `.in-progress`, or `.blocked` modifier)",
+		'<span class="badge done">Done</span>  <span class="badge in-progress">In progress</span>  <span class="badge blocked">Blocked</span>',
 		"",
 		"**Tag row** (inline keyword labels)",
 		'<div><span class="tag">TypeScript</span><span class="tag">CSS</span></div>',
