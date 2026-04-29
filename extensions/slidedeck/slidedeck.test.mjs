@@ -12,7 +12,7 @@ import {
 test("buildSlidedeckPrompt uses provided source material at the end", () => {
 	const prompt = buildSlidedeckPrompt("Issue #131: explain the HTML deck workflow");
 	assert.match(prompt, /Use the save_slidedeck tool exactly once/);
-	assert.match(prompt, /utility classes like callout, card, card-grid, grid, two, three/);
+	assert.match(prompt, /Use these patterns exactly/);
 	assert.match(prompt, /A clickable Markdown link to the saved deck/);
 	assert.ok(prompt.endsWith("Source material:\nIssue #131: explain the HTML deck workflow"));
 });

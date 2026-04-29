@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 
 export type SlidedeckSlide = {
 	title: string;
+	eyebrow?: string;
 	body: string;
 };
 
@@ -185,6 +186,14 @@ ol {
 	line-height: 1;
 }
 
+.stat {
+	font-size: 44px;
+	font-weight: 800;
+	color: var(--accent);
+	display: inline-block;
+	line-height: 1;
+}
+
 .tag {
 	display: inline-block;
 	font-size: 16px;
@@ -195,6 +204,37 @@ ol {
 	color: var(--accent);
 	margin-right: 8px;
 	margin-bottom: 8px;
+}
+
+.badge {
+	display: inline-flex;
+	align-items: center;
+	white-space: nowrap;
+	font-size: 14px;
+	font-weight: 600;
+	padding: 4px 12px;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.06);
+	border: 1px solid var(--border);
+	color: var(--text);
+}
+
+.badge.done {
+	background: rgba(110, 231, 183, 0.12);
+	border-color: rgba(110, 231, 183, 0.3);
+	color: var(--accent-2);
+}
+
+.badge.in-progress {
+	background: rgba(138, 180, 255, 0.12);
+	border-color: rgba(138, 180, 255, 0.3);
+	color: var(--accent);
+}
+
+.badge.blocked {
+	background: rgba(248, 113, 113, 0.12);
+	border-color: rgba(248, 113, 113, 0.3);
+	color: var(--danger);
 }
 
 table {
@@ -227,20 +267,17 @@ th {
 	bottom: 24px;
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
 	gap: 16px;
-	padding-right: 220px;
 	color: var(--muted);
 	font-size: 16px;
 }
 
 .progress {
 	height: 6px;
-	width: 220px;
+	flex: 1;
 	background: rgba(255, 255, 255, 0.08);
 	border-radius: 999px;
 	overflow: hidden;
-	flex: 0 0 auto;
 }
 
 .progress > div {
@@ -250,12 +287,9 @@ th {
 }
 
 .nav {
-	position: fixed;
-	right: 20px;
-	bottom: 20px;
 	display: flex;
 	gap: 10px;
-	z-index: 10;
+	flex-shrink: 0;
 }
 
 button {
@@ -295,6 +329,105 @@ button:disabled {
 	flex-direction: column;
 	gap: 22px;
 	max-width: 1100px;
+}
+
+.section {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	flex: 1;
+	text-align: center;
+	gap: 16px;
+}
+
+.section h2 {
+	font-size: 64px;
+}
+
+.section p {
+	font-size: 22px;
+	color: var(--muted);
+}
+
+.statement {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	flex: 1;
+	max-width: 900px;
+}
+
+.statement p {
+	font-size: 36px;
+	line-height: 1.3;
+	font-weight: 600;
+}
+
+.quote {
+	border-left: 4px solid var(--accent);
+	padding: 20px 28px;
+	background: rgba(255, 255, 255, 0.03);
+	border-radius: 0 16px 16px 0;
+}
+
+.quote p {
+	font-size: 28px;
+	line-height: 1.4;
+	font-style: italic;
+}
+
+.quote .attribution {
+	margin-top: 12px;
+	font-size: 18px;
+	color: var(--muted);
+	font-style: normal;
+}
+
+.steps {
+	counter-reset: step;
+	list-style: none;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.steps li {
+	display: flex;
+	align-items: flex-start;
+	flex-wrap: wrap;
+	gap: 4px 16px;
+	counter-increment: step;
+}
+
+.steps li::before {
+	content: counter(step);
+	font-size: 18px;
+	font-weight: 800;
+	color: var(--accent);
+	background: rgba(138, 180, 255, 0.12);
+	border: 1px solid rgba(138, 180, 255, 0.25);
+	border-radius: 50%;
+	min-width: 36px;
+	height: 36px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	margin-top: 2px;
+}
+
+.steps li strong {
+	flex: 1;
+	min-width: 0;
+	line-height: 36px;
+}
+
+.steps li p {
+	flex-basis: 100%;
+	padding-left: 52px;
+	margin: 0;
 }
 
 .ascii {
@@ -381,24 +514,30 @@ button:disabled {
 		overflow: auto;
 	}
 
+	.deck {
+		display: flex;
+		flex-direction: column;
+		height: auto;
+		min-height: 100vh;
+	}
+
 	.slide {
-		padding: 24px 24px 96px;
+		position: static;
+		display: none;
+		flex: 1;
+		padding: 24px 36px 24px;
+	}
+
+	.slide.active {
+		display: flex;
 	}
 
 	.footer {
 		position: static;
-		padding-right: 0;
-		margin-top: auto;
-	}
-
-	.progress {
-		width: 160px;
-	}
-
-	.nav {
-		position: static;
-		padding: 0 24px 24px;
-		justify-content: flex-end;
+		left: auto;
+		right: auto;
+		bottom: auto;
+		padding: 16px 36px 24px;
 	}
 }
 
@@ -424,7 +563,7 @@ button:disabled {
 		page-break-after: auto;
 	}
 
-	.nav {
+	.footer {
 		display: none;
 	}
 }
@@ -435,7 +574,6 @@ const deck = document.querySelector(".deck");
 const slides = Array.from(document.querySelectorAll(".slide"));
 const progressBars = Array.from(document.querySelectorAll(".progress > div"));
 let index = Math.max(0, slides.findIndex((slide) => slide.id === window.location.hash.slice(1)));
-if (index < 0) index = 0;
 
 function render() {
 	slides.forEach((slide, i) => slide.classList.toggle("active", i === index));
@@ -443,6 +581,8 @@ function render() {
 	progressBars.forEach((bar) => {
 		bar.style.width = pct + "%";
 	});
+	const slideCounter = document.getElementById("slide-counter");
+	if (slideCounter) slideCounter.textContent = "Slide " + (index + 1);
 	const current = slides[index];
 	if (current && window.location.hash !== "#" + current.id) {
 		history.replaceState(null, "", "#" + current.id);
@@ -501,17 +641,79 @@ export function buildSlidedeckPrompt(input: string): string {
 	return [
 		"Create a presentation-style HTML slidedeck for this work.",
 		"",
-		"Requirements:",
-		"- Use the save_slidedeck tool exactly once to save the final deck.",
+		"## Tool usage",
+		"- Use the save_slidedeck tool exactly once with the final deck.",
 		"- Do not emit a full <html> document in chat.",
 		"- Do not use write or edit to create deck files in the workspace.",
-		"- The tool already provides the outer HTML, CSS, and slide navigation.",
-		"- Provide a concise deck title and 4-10 focused slides unless the material clearly needs a different count.",
-		"- For each slide, provide a short title and an HTML fragment for the slide body.",
-		"- Prefer semantic HTML such as <p>, <ul>, <ol>, <table>, <blockquote>, <pre>, and <div>.",
-		"- You may use utility classes like callout, card, card-grid, grid, two, three, grid-2, split, hero, center, kpi-row, kpi, tag, ascii, small, tiny, muted, accent, good, warn, and bad if helpful.",
+		"- The tool provides the outer HTML, CSS, and navigation — only supply slide content.",
+		"- Provide a concise deck title and 4–10 focused slides unless the material clearly needs a different count.",
+		"- Each slide needs a short `title` and an HTML `body` fragment.",
+		"- `title` and `eyebrow` are plain text — do not use HTML entities (write `&` not `&amp;`). The tool handles escaping.",
+		"- Optionally set `eyebrow` on each slide for a category label (e.g. 'Problem', 'Solution', 'Timeline'). Omit to use the default 'Slide N'.",
 		"- Optimize for clarity, scanability, and discussion/review use.",
 		"- If the request is too ambiguous, ask at most one brief clarifying question before calling the tool.",
+		"",
+		"## CSS layout cheat sheet",
+		"",
+		"Use these patterns exactly — class names matter and composites must be nested correctly.",
+		"",
+		"**Cover / hero slide**",
+		'<div class="hero"><p class="muted">Subtitle or date</p></div>',
+		"",
+		"**Section divider** (chapter break — centered big heading)",
+		'<div class="section"><p>Optional subtitle</p></div>',
+		"",
+		"**Two-column split** (left + right panels)",
+		'<div class="split"><div><h3>Left</h3><p>…</p></div><div><h3>Right</h3><p>…</p></div></div>',
+		"",
+		"**Two-column grid** (use `grid two`, not `two` alone)",
+		'<div class="grid two"><div>…</div><div>…</div></div>',
+		"",
+		"**Three-column grid** (use `grid three`, not `three` alone)",
+		'<div class="grid three"><div>…</div><div>…</div><div>…</div></div>',
+		"",
+		"**Card grid** (responsive cards — `card-grid` wraps `card` divs)",
+		'<div class="card-grid"><div class="card"><h3>Title</h3><p>…</p></div></div>',
+		"",
+		"**Callout** (highlighted note with accent left border)",
+		'<div class="callout"><h3>Note</h3><p>…</p></div>',
+		"",
+		"**Metric row** (`kpi-row` container → bare divs → `kpi-value` span for the number)",
+		'<div class="kpi-row"><div><span class="kpi-value">42</span><p>label</p></div></div>',
+		"",
+		"**Stat / accent label** (step numbers, status words — use `.stat`, not `.kpi`)",
+		'<div class="stat good">✓</div>  <!-- or: <div class="stat">1</div> -->',
+		"",
+		"**Statement** (one big sentence centered on the slide)",
+		'<div class="statement"><p>The one thing that matters most.</p></div>',
+		"",
+		"**Quote** (blockquote with attribution)",
+		'<div class="quote"><p>The quote text here.</p><p class="attribution">— Author, Source</p></div>',
+		"",
+		"**Numbered steps** (auto-counter list — apply `steps` class to `<ol>`)",
+		'<ol class="steps"><li><strong>Step name</strong><p>Description</p></li></ol>',
+		"",
+		"**Status badges** (inline pill — `.done`, `.in-progress`, or `.blocked` modifier)",
+		'<span class="badge done">Done</span>  <span class="badge in-progress">In progress</span>  <span class="badge blocked">Blocked</span>',
+		"",
+		"**Tag row** (inline keyword labels)",
+		'<div><span class="tag">TypeScript</span><span class="tag">CSS</span></div>',
+		"",
+		"**ASCII / code diagram**",
+		'<pre class="ascii">diagram here</pre>',
+		"",
+		"**Table** (use `small` or `tiny` class on the slide body for denser text)",
+		"<table><thead><tr><th>Col</th></tr></thead><tbody><tr><td>…</td></tr></tbody></table>",
+		"",
+		"## Utility classes",
+		"- `muted` — dimmed text color",
+		"- `accent` — blue accent color",
+		"- `good` — green (success/positive)",
+		"- `warn` — yellow (caution)",
+		"- `bad` — red (error/negative)",
+		"- `small` / `tiny` — reduce font size on lists, tables, paragraphs",
+		"- `big-list` — larger font on list items",
+		"- `center` — center-justify flex content",
 		"",
 		"After the tool succeeds, reply with:",
 		"1. The saved file path",
@@ -601,9 +803,13 @@ export function renderSlidedeckHtml(options: {
 		"<body>",
 		`<div class=\"deck\" data-title=\"${escapedTitle}\">`,
 		slides,
+		"<div class=\"footer\">",
+		"<div id=\"slide-counter\">Slide 1</div>",
+		"<div class=\"progress\"><div></div></div>",
 		"<div class=\"nav\">",
 		"<button id=\"prev\">← Prev</button>",
 		"<button id=\"next\">Next →</button>",
+		"</div>",
 		"</div>",
 		"</div>",
 		`<script>${DECK_JS}</script>`,
@@ -614,15 +820,12 @@ export function renderSlidedeckHtml(options: {
 
 function renderSlide(slide: SlidedeckSlide, index: number, total: number): string {
 	const headingTag = index === 0 ? "h1" : "h2";
+	const eyebrow = slide.eyebrow ?? `Slide ${index + 1}`;
 	return [
 		`<section class=\"slide${index === 0 ? " active" : ""}\" id=\"slide-${index + 1}\">`,
-		`<div class=\"eyebrow\">Slide ${index + 1}</div>`,
+		`<div class=\"eyebrow\">${escapeHtml(eyebrow)}</div>`,
 		`<${headingTag} class=\"slide-title\">${escapeHtml(slide.title)}</${headingTag}>`,
 		slide.body,
-		"<div class=\"footer\">",
-		`<div>Slide ${index + 1}</div>`,
-		"<div class=\"progress\"><div></div></div>",
-		"</div>",
 		"</section>",
 	].join("");
 }
