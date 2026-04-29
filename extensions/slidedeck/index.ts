@@ -11,12 +11,8 @@ import {
 	resolveAgentDir,
 } from "./helpers.ts";
 
-type SlidedeckFlowState = {
-	active: true;
-};
-
 export default function slidedeckExtension(pi: ExtensionAPI): void {
-	let activeFlow: SlidedeckFlowState | undefined;
+	let activeFlow = false;
 
 	pi.registerTool({
 		name: "save_slidedeck",
@@ -66,7 +62,6 @@ export default function slidedeckExtension(pi: ExtensionAPI): void {
 								`Path: ${location.file}`,
 								`Link: ${markdownLink}`,
 								`URL: ${fileUrl}`,
-								`<file name=\"${location.file}\">`,
 							].join("\n"),
 						},
 					],
@@ -90,7 +85,7 @@ export default function slidedeckExtension(pi: ExtensionAPI): void {
 				return;
 			}
 
-			activeFlow = { active: true };
+			activeFlow = true;
 			pi.sendUserMessage(buildSlidedeckPrompt(args ?? ""));
 		},
 	});
@@ -109,10 +104,10 @@ export default function slidedeckExtension(pi: ExtensionAPI): void {
 	});
 
 	pi.on("agent_end", async (_event, _ctx) => {
-		activeFlow = undefined;
+		activeFlow = false;
 	});
 
 	pi.on("session_shutdown", async (_event, _ctx) => {
-		activeFlow = undefined;
+		activeFlow = false;
 	});
 }

@@ -435,7 +435,6 @@ const deck = document.querySelector(".deck");
 const slides = Array.from(document.querySelectorAll(".slide"));
 const progressBars = Array.from(document.querySelectorAll(".progress > div"));
 let index = Math.max(0, slides.findIndex((slide) => slide.id === window.location.hash.slice(1)));
-if (index < 0) index = 0;
 
 function render() {
 	slides.forEach((slide, i) => slide.classList.toggle("active", i === index));
