@@ -186,6 +186,14 @@ ol {
 	line-height: 1;
 }
 
+.stat {
+	font-size: 44px;
+	font-weight: 800;
+	color: var(--accent);
+	display: inline-block;
+	line-height: 1;
+}
+
 .tag {
 	display: inline-block;
 	font-size: 16px;
@@ -196,6 +204,36 @@ ol {
 	color: var(--accent);
 	margin-right: 8px;
 	margin-bottom: 8px;
+}
+
+.badge {
+	display: inline-flex;
+	align-items: center;
+	font-size: 14px;
+	font-weight: 600;
+	padding: 4px 12px;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.06);
+	border: 1px solid var(--border);
+	color: var(--text);
+}
+
+.badge.done {
+	background: rgba(110, 231, 183, 0.12);
+	border-color: rgba(110, 231, 183, 0.3);
+	color: var(--accent-2);
+}
+
+.badge.progress {
+	background: rgba(138, 180, 255, 0.12);
+	border-color: rgba(138, 180, 255, 0.3);
+	color: var(--accent);
+}
+
+.badge.blocked {
+	background: rgba(248, 113, 113, 0.12);
+	border-color: rgba(248, 113, 113, 0.3);
+	color: var(--danger);
 }
 
 table {
@@ -296,6 +334,92 @@ button:disabled {
 	flex-direction: column;
 	gap: 22px;
 	max-width: 1100px;
+}
+
+.section {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	flex: 1;
+	text-align: center;
+	gap: 16px;
+}
+
+.section h2 {
+	font-size: 64px;
+}
+
+.section p {
+	font-size: 22px;
+	color: var(--muted);
+}
+
+.statement {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	flex: 1;
+	max-width: 900px;
+}
+
+.statement p {
+	font-size: 36px;
+	line-height: 1.3;
+	font-weight: 600;
+}
+
+.quote {
+	border-left: 4px solid var(--accent);
+	padding: 20px 28px;
+	background: rgba(255, 255, 255, 0.03);
+	border-radius: 0 16px 16px 0;
+}
+
+.quote p {
+	font-size: 28px;
+	line-height: 1.4;
+	font-style: italic;
+}
+
+.quote .attribution {
+	margin-top: 12px;
+	font-size: 18px;
+	color: var(--muted);
+	font-style: normal;
+}
+
+.steps {
+	counter-reset: step;
+	list-style: none;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.steps li {
+	display: flex;
+	align-items: flex-start;
+	gap: 16px;
+	counter-increment: step;
+}
+
+.steps li::before {
+	content: counter(step);
+	font-size: 18px;
+	font-weight: 800;
+	color: var(--accent);
+	background: rgba(138, 180, 255, 0.12);
+	border: 1px solid rgba(138, 180, 255, 0.25);
+	border-radius: 50%;
+	min-width: 36px;
+	height: 36px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	margin-top: 2px;
 }
 
 .ascii {
