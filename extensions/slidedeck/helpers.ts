@@ -209,6 +209,7 @@ ol {
 .badge {
 	display: inline-flex;
 	align-items: center;
+	white-space: nowrap;
 	font-size: 14px;
 	font-weight: 600;
 	padding: 4px 12px;
@@ -266,20 +267,17 @@ th {
 	bottom: 24px;
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
 	gap: 16px;
-	padding-right: 220px;
 	color: var(--muted);
 	font-size: 16px;
 }
 
 .progress {
 	height: 6px;
-	width: 220px;
+	flex: 1;
 	background: rgba(255, 255, 255, 0.08);
 	border-radius: 999px;
 	overflow: hidden;
-	flex: 0 0 auto;
 }
 
 .progress > div {
@@ -289,12 +287,9 @@ th {
 }
 
 .nav {
-	position: fixed;
-	right: 20px;
-	bottom: 20px;
 	display: flex;
 	gap: 10px;
-	z-index: 10;
+	flex-shrink: 0;
 }
 
 button {
@@ -401,7 +396,8 @@ button:disabled {
 .steps li {
 	display: flex;
 	align-items: flex-start;
-	gap: 16px;
+	flex-wrap: wrap;
+	gap: 4px 16px;
 	counter-increment: step;
 }
 
@@ -420,6 +416,18 @@ button:disabled {
 	justify-content: center;
 	flex-shrink: 0;
 	margin-top: 2px;
+}
+
+.steps li strong {
+	flex: 1;
+	min-width: 0;
+	line-height: 36px;
+}
+
+.steps li p {
+	flex-basis: 100%;
+	padding-left: 52px;
+	margin: 0;
 }
 
 .ascii {
@@ -511,19 +519,8 @@ button:disabled {
 	}
 
 	.footer {
-		position: static;
-		padding-right: 0;
-		margin-top: auto;
-	}
-
-	.progress {
-		width: 160px;
-	}
-
-	.nav {
-		position: static;
-		padding: 0 24px 24px;
-		justify-content: flex-end;
+		left: 36px;
+		right: 36px;
 	}
 }
 
@@ -549,7 +546,7 @@ button:disabled {
 		page-break-after: auto;
 	}
 
-	.nav {
+	.footer {
 		display: none;
 	}
 }
@@ -567,6 +564,8 @@ function render() {
 	progressBars.forEach((bar) => {
 		bar.style.width = pct + "%";
 	});
+	const slideCounter = document.getElementById("slide-counter");
+	if (slideCounter) slideCounter.textContent = "Slide " + (index + 1);
 	const current = slides[index];
 	if (current && window.location.hash !== "#" + current.id) {
 		history.replaceState(null, "", "#" + current.id);
@@ -632,6 +631,7 @@ export function buildSlidedeckPrompt(input: string): string {
 		"- The tool provides the outer HTML, CSS, and navigation — only supply slide content.",
 		"- Provide a concise deck title and 4–10 focused slides unless the material clearly needs a different count.",
 		"- Each slide needs a short `title` and an HTML `body` fragment.",
+		"- `title` and `eyebrow` are plain text — do not use HTML entities (write `&` not `&amp;`). The tool handles escaping.",
 		"- Optionally set `eyebrow` on each slide for a category label (e.g. 'Problem', 'Solution', 'Timeline'). Omit to use the default 'Slide N'.",
 		"- Optimize for clarity, scanability, and discussion/review use.",
 		"- If the request is too ambiguous, ask at most one brief clarifying question before calling the tool.",
@@ -786,9 +786,13 @@ export function renderSlidedeckHtml(options: {
 		"<body>",
 		`<div class=\"deck\" data-title=\"${escapedTitle}\">`,
 		slides,
+		"<div class=\"footer\">",
+		"<div id=\"slide-counter\">Slide 1</div>",
+		"<div class=\"progress\"><div></div></div>",
 		"<div class=\"nav\">",
 		"<button id=\"prev\">← Prev</button>",
 		"<button id=\"next\">Next →</button>",
+		"</div>",
 		"</div>",
 		"</div>",
 		`<script>${DECK_JS}</script>`,
@@ -805,10 +809,6 @@ function renderSlide(slide: SlidedeckSlide, index: number, total: number): strin
 		`<div class=\"eyebrow\">${escapeHtml(eyebrow)}</div>`,
 		`<${headingTag} class=\"slide-title\">${escapeHtml(slide.title)}</${headingTag}>`,
 		slide.body,
-		"<div class=\"footer\">",
-		`<div>Slide ${index + 1}</div>`,
-		"<div class=\"progress\"><div></div></div>",
-		"</div>",
 		"</section>",
 	].join("");
 }
