@@ -514,13 +514,30 @@ button:disabled {
 		overflow: auto;
 	}
 
+	.deck {
+		display: flex;
+		flex-direction: column;
+		height: auto;
+		min-height: 100vh;
+	}
+
 	.slide {
-		padding: 24px 24px 96px;
+		position: static;
+		display: none;
+		flex: 1;
+		padding: 24px 36px 24px;
+	}
+
+	.slide.active {
+		display: flex;
 	}
 
 	.footer {
-		left: 36px;
-		right: 36px;
+		position: static;
+		left: auto;
+		right: auto;
+		bottom: auto;
+		padding: 16px 36px 24px;
 	}
 }
 
@@ -641,10 +658,10 @@ export function buildSlidedeckPrompt(input: string): string {
 		"Use these patterns exactly — class names matter and composites must be nested correctly.",
 		"",
 		"**Cover / hero slide**",
-		'<div class="hero"><h1>Title</h1><p class="muted">Subtitle or date</p></div>',
+		'<div class="hero"><p class="muted">Subtitle or date</p></div>',
 		"",
 		"**Section divider** (chapter break — centered big heading)",
-		'<div class="section"><h2>Chapter Name</h2><p>Optional subtitle</p></div>',
+		'<div class="section"><p>Optional subtitle</p></div>',
 		"",
 		"**Two-column split** (left + right panels)",
 		'<div class="split"><div><h3>Left</h3><p>…</p></div><div><h3>Right</h3><p>…</p></div></div>',
