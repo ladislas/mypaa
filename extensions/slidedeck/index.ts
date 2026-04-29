@@ -22,6 +22,7 @@ export default function slidedeckExtension(pi: ExtensionAPI): void {
 		promptGuidelines: [
 			"Use save_slidedeck when the user asks for a presentation-style HTML artifact or slidedeck.",
 			"Use save_slidedeck instead of write or edit for deck output files, because deck files must stay out of the repo workspace.",
+			"Each slide accepts an optional eyebrow field for a category label (e.g. 'Problem', 'Solution'); omit it to default to 'Slide N'.",
 		],
 		parameters: Type.Object({
 			title: Type.String({ description: "Deck title" }),
