@@ -625,7 +625,7 @@ export function buildSlidedeckPrompt(input: string): string {
 		"Create a presentation-style HTML slidedeck for this work.",
 		"",
 		"## Tool usage",
-		"- Call save_slidedeck exactly once with the final deck.",
+		"- Use the save_slidedeck tool exactly once with the final deck.",
 		"- Do not emit a full <html> document in chat.",
 		"- Do not use write or edit to create deck files in the workspace.",
 		"- The tool provides the outer HTML, CSS, and navigation — only supply slide content.",
