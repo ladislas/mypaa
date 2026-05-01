@@ -62,7 +62,7 @@ test("renderSlidedeckHtml wraps slides in the shared template", () => {
 	const html = renderSlidedeckHtml({
 		title: "Review Deck",
 		slides: [
-			{ title: "Overview & Goals", body: "<p>Summarize the work.</p>" },
+			{ title: "Overview & Goals", body: "<p>Summarize the <a href=\"https://example.com\">work</a>.</p>" },
 			{ title: "Next Steps", body: "<ul><li>Ship it</li></ul>" },
 		],
 		generatedAt: new Date("2026-04-28T12:34:56Z"),
@@ -77,7 +77,9 @@ test("renderSlidedeckHtml wraps slides in the shared template", () => {
 	assert.match(html, /<h1 class="slide-title">Overview &amp; Goals<\/h1>/);
 	assert.match(html, /<h2 class="slide-title">Next Steps<\/h2>/);
 	assert.match(html, /<div class="eyebrow">Slide 1<\/div>/);
-	assert.match(html, /<p>Summarize the work\.<\/p>/);
+	assert.match(html, /<p>Summarize the <a href="https:\/\/example\.com">work<\/a>\.<\/p>/);
+	assert.match(html, /a,\s*a:visited\s*\{\s*color: var\(--accent\);/);
+	assert.match(html, /a:hover,\s*a:focus-visible\s*\{\s*color: var\(--accent-2\);/);
 	assert.doesNotMatch(html, /class="slide-body"/);
 	assert.match(html, /<script>\s*const deck = document\.querySelector/);
 });

@@ -97,6 +97,19 @@ li {
 	color: var(--text);
 }
 
+a,
+a:visited {
+	color: var(--accent);
+	text-decoration-color: rgba(138, 180, 255, 0.6);
+	text-underline-offset: 0.14em;
+}
+
+a:hover,
+a:focus-visible {
+	color: var(--accent-2);
+	text-decoration-color: currentColor;
+}
+
 .muted,
 .muted p,
 p.muted {
