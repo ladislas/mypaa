@@ -717,7 +717,7 @@ export function buildSlidedeckPrompt(input: string): string {
 		"",
 		"After the tool succeeds, reply with:",
 		"1. The saved file path",
-		"2. A clickable Markdown link to the saved deck",
+		"2. A Markdown link in the exact format `[slideck](<saved file path>)`",
 		"3. The deck title",
 		"4. A short summary of what the deck covers",
 		"",
