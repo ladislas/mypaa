@@ -13,13 +13,26 @@ export type SlidedeckLocation = {
 	file: string;
 };
 
+export type SlidedeckState = {
+	currentDeckPath?: string;
+	pendingDeckPath?: string;
+};
+
 export function getSessionSlidedeckDir(agentDir: string, sessionId: string): string {
 	return path.join(agentDir, "slidedecks", sessionId);
 }
 
 export function isSessionSlidedeckFile(filePath: string, sessionDeckDir: string): boolean {
+	return isSlidedeckFileInDir(filePath, sessionDeckDir);
+}
+
+export function isPiManagedSlidedeckFile(filePath: string, agentDir: string): boolean {
+	return isSlidedeckFileInDir(filePath, path.join(agentDir, "slidedecks"));
+}
+
+function isSlidedeckFileInDir(filePath: string, directory: string): boolean {
 	const resolvedFile = path.resolve(filePath);
-	const resolvedDir = path.resolve(sessionDeckDir);
+	const resolvedDir = path.resolve(directory);
 	const relative = path.relative(resolvedDir, resolvedFile);
 
 	return (
@@ -666,32 +679,48 @@ render();
 
 export function buildSlidedeckPrompt(
 	input: string,
-	options: { sessionDeckDir?: string; lastDeckPath?: string } = {},
+	options: { sessionDeckDir?: string; currentDeckPath?: string; pendingDeckPath?: string } = {},
 ): string {
 	const trimmed = input.trim();
 	const source = trimmed || "Use the current conversation context.";
-	const lastDeckPath = options.lastDeckPath ? `- Most recently returned deck in this session: ${options.lastDeckPath}` : undefined;
+	const currentDeckPath = options.currentDeckPath ? `- Current deck tracked for this session: ${options.currentDeckPath}` : undefined;
+	const pendingDeckPath = options.pendingDeckPath
+		? `- Pending fresh refinement copy for this session: ${options.pendingDeckPath}`
+		: undefined;
 	const sessionDeckDir = options.sessionDeckDir ? `- Current session deck directory: ${options.sessionDeckDir}` : undefined;
 
 	return [
-		"Create a presentation-style HTML slidedeck for this work.",
+		"Create or refine a presentation-style HTML slidedeck for this work.",
 		"",
-		"## Tool usage",
+		"## Modes",
+		"### New deck creation",
 		"- Use the save_slidedeck tool exactly once with the final deck.",
 		"- Do not emit a full <html> document in chat.",
-		"- Do not use write or edit to create deck files in the workspace.",
-		"- The tool provides the outer HTML, CSS, and navigation — only supply slide content.",
+		"- Do not use write, edit, or bash to create or mutate deck files for a new deck.",
+		"- The tool provides the outer HTML, CSS, and navigation — only supply slide content when creating a new deck.",
 		"- Provide a concise deck title and 4–10 focused slides unless the material clearly needs a different count.",
 		"- Each slide needs a short `title` and an HTML `body` fragment.",
 		"- `title` and `eyebrow` are plain text — do not use HTML entities (write `&` not `&amp;`). The tool handles escaping.",
 		"- Optionally set `eyebrow` on each slide for a category label (e.g. 'Problem', 'Solution', 'Timeline'). Omit to use the default 'Slide N'.",
-		"- If refining a previously saved deck, prefer reading the latest deck, copying it to a new `-v2`, `-v3`, etc. HTML file, and making focused edits to that copy instead of regenerating the whole deck.",
-		"- Preserve untouched slides verbatim when iterating on an existing deck.",
-		"- In-place edits are acceptable only for tiny fixes such as typos.",
-		"- If the latest deck path is not obvious, use the most recently returned deck path in this session; otherwise inspect the current session deck directory and pick the highest `-vN` revision, else the latest timestamped base deck.",
+		"",
+		"### Deck refinement",
+		"- Never use save_slidedeck for refinement.",
+		"- Refine only when the user clearly asks to refine, update, revise, or tweak an existing deck.",
+		"- In the same session, use the tracked current deck unless the user explicitly points to another Pi-managed deck path.",
+		"- In a new session, or whenever no current deck is tracked, require an explicit Pi-managed deck path before refining.",
+		"- If a pending fresh refinement copy is already tracked, resume by editing only that file and do not copy again.",
+		"- Otherwise, start refinement with exactly one bash command in the form `cp <source.html> <target-vN.html>`.",
+		"- The source must be a Pi-managed slidedeck HTML file under the Pi agent slidedecks directory.",
+		"- The target must be the exact next fresh `-vN` filename in the current session deck directory.",
+		"- After the copy succeeds, mutate only that fresh copied file.",
+		"- Allow only plain edit, edit.multi, or a single-file edit.patch `Update File` against that one target file.",
+		"- Do not use write for refinement.",
+		"- Do not use shell commands to mutate deck files other than the validated copy command.",
+		"- Preserve untouched slides verbatim when refining an existing deck.",
 		"- Optimize for clarity, scanability, and discussion/review use.",
 		"- If the request is too ambiguous, ask at most one brief clarifying question before calling the tool.",
-		...(lastDeckPath ? [lastDeckPath] : []),
+		...(currentDeckPath ? [currentDeckPath] : []),
+		...(pendingDeckPath ? [pendingDeckPath] : []),
 		...(sessionDeckDir ? [sessionDeckDir] : []),
 		"",
 		"## CSS layout cheat sheet",
@@ -756,8 +785,8 @@ export function buildSlidedeckPrompt(
 		"- `big-list` — larger font on list items",
 		"- `center` — center-justify flex content",
 		"",
-		"After the tool succeeds, reply with:",
-		"1. The saved file path",
+		"After deck creation or successful refinement, reply with:",
+		"1. The saved or refined file path",
 		"2. A Markdown link in the exact format `[slidedeck](<saved file path>)`",
 		"3. The deck title",
 		"4. A short summary of what the deck covers",
@@ -822,6 +851,158 @@ export function getSlidedeckLocation(options: {
 		dir,
 		file: path.join(dir, `${stamp}-${slug}.html`),
 	};
+}
+
+export function getNextSlidedeckRevisionPath(sourcePath: string, sessionDeckDir: string, existingFilePaths: string[] = []): string {
+	const extension = path.extname(sourcePath) || ".html";
+	const basename = path.basename(sourcePath, extension);
+	const revisionMatch = basename.match(/^(.*)-v(\d+)$/);
+	const rootName = revisionMatch ? revisionMatch[1] : basename;
+	let highestRevision = revisionMatch ? Number.parseInt(revisionMatch[2]!, 10) : 1;
+
+	for (const existingFilePath of existingFilePaths) {
+		const existingName = path.basename(existingFilePath, path.extname(existingFilePath));
+		if (existingName === rootName) {
+			highestRevision = Math.max(highestRevision, 1);
+			continue;
+		}
+
+		const existingMatch = existingName.match(new RegExp(`^${escapeRegExp(rootName)}-v(\\d+)$`));
+		if (existingMatch) {
+			highestRevision = Math.max(highestRevision, Number.parseInt(existingMatch[1]!, 10));
+		}
+	}
+
+	return path.join(sessionDeckDir, `${rootName}-v${highestRevision + 1}${extension}`);
+}
+
+export function getSlidedeckStateFromEntries(entries: Array<{ type?: unknown; customType?: unknown; data?: unknown; message?: unknown }>): SlidedeckState {
+	const state: SlidedeckState = {};
+
+	for (const entry of entries) {
+		if (entry.type === "custom" && entry.customType === "slidedeck-state") {
+			const data = entry.data && typeof entry.data === "object" ? (entry.data as SlidedeckState & { lastDeckPath?: unknown }) : undefined;
+			if (typeof data?.currentDeckPath === "string") {
+				state.currentDeckPath = data.currentDeckPath;
+			}
+			if (typeof data?.pendingDeckPath === "string") {
+				state.pendingDeckPath = data.pendingDeckPath;
+			} else {
+				delete state.pendingDeckPath;
+			}
+			if (typeof data?.lastDeckPath === "string") {
+				state.currentDeckPath = data.lastDeckPath;
+			}
+			continue;
+		}
+
+		if (entry.type !== "message") {
+			continue;
+		}
+
+		const message = entry.message && typeof entry.message === "object" ? (entry.message as { role?: unknown; toolName?: unknown; details?: unknown }) : undefined;
+		if (message?.role !== "toolResult" || message.toolName !== "save_slidedeck") {
+			continue;
+		}
+
+		const savedPath = message.details && typeof message.details === "object" ? (message.details as { path?: unknown }).path : undefined;
+		if (typeof savedPath === "string") {
+			state.currentDeckPath = savedPath;
+			delete state.pendingDeckPath;
+		}
+	}
+
+	return state;
+}
+
+export function getSingleRefinementEditTargetPath(input: unknown): string | undefined {
+	if (!input || typeof input !== "object") {
+		return undefined;
+	}
+
+	const payload = input as {
+		path?: unknown;
+		oldText?: unknown;
+		newText?: unknown;
+		multi?: unknown;
+		patch?: unknown;
+	};
+
+	if (typeof payload.patch === "string") {
+		return getSinglePatchUpdateTargetPath(payload.patch);
+	}
+
+	if (Array.isArray(payload.multi)) {
+		const sharedPath = typeof payload.path === "string" ? payload.path : undefined;
+		const resolvedPaths = new Set<string>();
+
+		for (const item of payload.multi) {
+			if (!item || typeof item !== "object") {
+				return undefined;
+			}
+
+			const editItem = item as { path?: unknown; oldText?: unknown; newText?: unknown };
+			if (typeof editItem.oldText !== "string" || typeof editItem.newText !== "string") {
+				return undefined;
+			}
+
+			const itemPath = typeof editItem.path === "string" ? editItem.path : sharedPath;
+			if (!itemPath) {
+				return undefined;
+			}
+
+			resolvedPaths.add(itemPath);
+		}
+
+		return resolvedPaths.size === 1 ? [...resolvedPaths][0] : undefined;
+	}
+
+	if (typeof payload.path === "string" && typeof payload.oldText === "string" && typeof payload.newText === "string") {
+		return payload.path;
+	}
+
+	return undefined;
+}
+
+export function getSinglePatchUpdateTargetPath(patch: string): string | undefined {
+	if (!patch.includes("*** Begin Patch") || !patch.includes("*** End Patch")) {
+		return undefined;
+	}
+
+	if (patch.includes("*** Add File:") || patch.includes("*** Delete File:") || patch.includes("*** Move to:")) {
+		return undefined;
+	}
+
+	const matches = [...patch.matchAll(/^\*\*\* Update File: (.+)$/gm)];
+	if (matches.length !== 1) {
+		return undefined;
+	}
+
+	return matches[0]?.[1]?.trim() || undefined;
+}
+
+export function parseStrictSlidedeckCopyCommand(command: string): { sourcePath: string; targetPath: string } | undefined {
+	const match = command.match(/^\s*cp\s+((?:"[^"]+"|'[^']+'|\S+))\s+((?:"[^"]+"|'[^']+'|\S+))\s*$/);
+	if (!match) {
+		return undefined;
+	}
+
+	return {
+		sourcePath: unquoteShellToken(match[1]!),
+		targetPath: unquoteShellToken(match[2]!),
+	};
+}
+
+function unquoteShellToken(value: string): string {
+	if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+		return value.slice(1, -1);
+	}
+
+	return value;
+}
+
+function escapeRegExp(value: string): string {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 export function renderSlidedeckHtml(options: {

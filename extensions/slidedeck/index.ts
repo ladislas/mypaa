@@ -1,54 +1,56 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { mkdir, readdir, writeFile } from "node:fs/promises";
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { withFileMutationQueue } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
 import {
 	buildSlidedeckPrompt,
+	getNextSlidedeckRevisionPath,
 	getSlidedeckFileUrl,
+	getSingleRefinementEditTargetPath,
 	getSlidedeckMarkdownLink,
 	getSlidedeckLocation,
+	getSlidedeckStateFromEntries,
 	getSessionSlidedeckDir,
+	isPiManagedSlidedeckFile,
 	isSessionSlidedeckFile,
+	parseStrictSlidedeckCopyCommand,
 	renderSlidedeckHtml,
 	resolveAgentDir,
 } from "./helpers.ts";
 
 export default function slidedeckExtension(pi: ExtensionAPI): void {
 	let activeFlow = false;
-	let lastDeckPath: string | undefined;
+	let currentDeckPath: string | undefined;
+	let pendingDeckPath: string | undefined;
 
-	const persistLastDeckPath = (filePath: string) => {
-		lastDeckPath = filePath;
-		pi.appendEntry("slidedeck-state", { lastDeckPath: filePath });
+	const persistState = (nextState: { currentDeckPath?: string; pendingDeckPath?: string }) => {
+		currentDeckPath = nextState.currentDeckPath;
+		pendingDeckPath = nextState.pendingDeckPath;
+		pi.appendEntry("slidedeck-state", nextState);
 	};
 
 	const reconstructState = (ctx: ExtensionContext) => {
-		lastDeckPath = undefined;
 		activeFlow = false;
+		const restoredState = getSlidedeckStateFromEntries(ctx.sessionManager.getBranch());
+		currentDeckPath = restoredState.currentDeckPath;
+		pendingDeckPath = restoredState.pendingDeckPath;
+	};
 
-		for (const entry of ctx.sessionManager.getBranch()) {
-			if (entry.type === "custom" && entry.customType === "slidedeck-state") {
-				const savedPath = entry.data && typeof entry.data === "object" ? (entry.data as { lastDeckPath?: unknown }).lastDeckPath : undefined;
-				if (typeof savedPath === "string") {
-					lastDeckPath = savedPath;
-				}
-				continue;
+	const isCurrentPendingDeck = (filePath: string): boolean => {
+		return Boolean(pendingDeckPath && path.resolve(filePath) === path.resolve(pendingDeckPath));
+	};
+
+	const getExpectedRefinementTarget = async (sourcePath: string, sessionDeckDir: string): Promise<string> => {
+		const existingFiles = await readdir(sessionDeckDir).catch((error: NodeJS.ErrnoException) => {
+			if (error.code === "ENOENT") {
+				return [];
 			}
 
-			if (entry.type !== "message") {
-				continue;
-			}
+			throw error;
+		});
 
-			const message = entry.message;
-			if (message.role !== "toolResult" || message.toolName !== "save_slidedeck") {
-				continue;
-			}
-
-			const savedPath = message.details && typeof message.details === "object" ? (message.details as { path?: unknown }).path : undefined;
-			if (typeof savedPath === "string") {
-				lastDeckPath = savedPath;
-			}
-		}
+		return getNextSlidedeckRevisionPath(sourcePath, sessionDeckDir, existingFiles);
 	};
 
 	pi.on("session_start", async (_event, ctx) => reconstructState(ctx));
@@ -63,8 +65,6 @@ export default function slidedeckExtension(pi: ExtensionAPI): void {
 			"Use save_slidedeck when the user asks for a presentation-style HTML artifact or slidedeck.",
 			"Use save_slidedeck instead of write or edit for deck output files, because deck files must stay out of the repo workspace.",
 			"Each slide accepts an optional eyebrow field for a category label (e.g. 'Problem', 'Solution'); omit it to default to 'Slide N'.",
-			"When refining an existing slidedeck, prefer reading the latest saved deck, copying it to a new `-vN` HTML file, and making focused edits to the copy instead of regenerating the whole deck.",
-			"Preserve untouched slides verbatim during slidedeck iterations, and use in-place edits only for tiny fixes such as typos.",
 		],
 		parameters: Type.Object({
 			title: Type.String({ description: "Deck title" }),
@@ -100,7 +100,7 @@ export default function slidedeckExtension(pi: ExtensionAPI): void {
 			return withFileMutationQueue(location.file, async () => {
 				await mkdir(location.dir, { recursive: true });
 				await writeFile(location.file, html, "utf8");
-				persistLastDeckPath(location.file);
+				persistState({ currentDeckPath: location.file, pendingDeckPath: undefined });
 				const fileUrl = getSlidedeckFileUrl(location.file);
 				const markdownLink = getSlidedeckMarkdownLink(location.file);
 				return {
@@ -138,7 +138,7 @@ export default function slidedeckExtension(pi: ExtensionAPI): void {
 			const agentDir = resolveAgentDir();
 			const sessionDeckDir = getSessionSlidedeckDir(agentDir, ctx.sessionManager.getSessionId());
 			activeFlow = true;
-			pi.sendUserMessage(buildSlidedeckPrompt(args ?? "", { sessionDeckDir, lastDeckPath }));
+			pi.sendUserMessage(buildSlidedeckPrompt(args ?? "", { sessionDeckDir, currentDeckPath, pendingDeckPath }));
 		},
 	});
 
@@ -147,18 +147,67 @@ export default function slidedeckExtension(pi: ExtensionAPI): void {
 			return;
 		}
 
-		if (event.toolName === "write" || event.toolName === "edit") {
-			const sessionDeckDir = getSessionSlidedeckDir(resolveAgentDir(), ctx.sessionManager.getSessionId());
-			const targetPath = typeof event.input.path === "string" ? event.input.path : undefined;
+		const agentDir = resolveAgentDir();
+		const sessionDeckDir = getSessionSlidedeckDir(agentDir, ctx.sessionManager.getSessionId());
 
-			if (targetPath && isSessionSlidedeckFile(targetPath, sessionDeckDir)) {
+		if (event.toolName === "write") {
+			return {
+				block: true,
+				reason: `Write is blocked in /pac-slidedeck. Use save_slidedeck for new decks, or refine only the pending copied deck under ${sessionDeckDir}.`,
+			};
+		}
+
+		if (event.toolName === "edit") {
+			const targetPath = getSingleRefinementEditTargetPath(event.input);
+
+			if (targetPath && pendingDeckPath && isCurrentPendingDeck(targetPath) && isSessionSlidedeckFile(targetPath, sessionDeckDir)) {
 				return;
 			}
 
 			return {
 				block: true,
-				reason: `Workspace deck files are blocked in /pac-slidedeck. Use save_slidedeck or refine an HTML deck under ${sessionDeckDir}.`,
+				reason: pendingDeckPath
+					? `Deck refinement edits must target only the pending copied deck: ${pendingDeckPath}`
+					: `Deck refinement requires a validated copy first. Use exactly one bash command in the form cp <source.html> <target-vN.html> under ${sessionDeckDir}.`,
 			};
+		}
+
+		if (event.toolName === "bash") {
+			const command = typeof event.input.command === "string" ? event.input.command : "";
+			const copyCommand = parseStrictSlidedeckCopyCommand(command);
+
+			if (copyCommand) {
+				if (pendingDeckPath) {
+					return {
+						block: true,
+						reason: `A pending copied deck is already tracked. Resume by editing ${pendingDeckPath} instead of copying again.`,
+					};
+				}
+
+				if (!isPiManagedSlidedeckFile(copyCommand.sourcePath, agentDir)) {
+					return {
+						block: true,
+						reason: `Deck refinement sources must be Pi-managed HTML decks under ${path.join(agentDir, "slidedecks")}.`,
+					};
+				}
+
+				const expectedTargetPath = await getExpectedRefinementTarget(copyCommand.sourcePath, sessionDeckDir);
+				if (!isSessionSlidedeckFile(copyCommand.targetPath, sessionDeckDir) || path.resolve(copyCommand.targetPath) !== path.resolve(expectedTargetPath)) {
+					return {
+						block: true,
+						reason: `Deck refinement copies must target the exact next fresh revision: ${expectedTargetPath}`,
+					};
+				}
+
+				return;
+			}
+
+			if (isMutatingShellCommand(command)) {
+				return {
+					block: true,
+					reason: "Shell mutation is blocked in /pac-slidedeck except for the validated single-file cp refinement copy.",
+				};
+			}
 		}
 	});
 
@@ -167,17 +216,26 @@ export default function slidedeckExtension(pi: ExtensionAPI): void {
 			return;
 		}
 
-		if (event.toolName !== "write" && event.toolName !== "edit") {
+		if (event.toolName === "bash") {
+			const command = typeof event.input.command === "string" ? event.input.command : "";
+			const copyCommand = parseStrictSlidedeckCopyCommand(command);
+			if (copyCommand) {
+				persistState({ currentDeckPath: copyCommand.sourcePath, pendingDeckPath: copyCommand.targetPath });
+			}
 			return;
 		}
 
-		const targetPath = typeof event.input.path === "string" ? event.input.path : undefined;
+		if (event.toolName !== "edit") {
+			return;
+		}
+
+		const targetPath = getSingleRefinementEditTargetPath(event.input);
 		const sessionDeckDir = getSessionSlidedeckDir(resolveAgentDir(), ctx.sessionManager.getSessionId());
-		if (!targetPath || !isSessionSlidedeckFile(targetPath, sessionDeckDir)) {
+		if (!targetPath || !pendingDeckPath || !isCurrentPendingDeck(targetPath) || !isSessionSlidedeckFile(targetPath, sessionDeckDir)) {
 			return;
 		}
 
-		persistLastDeckPath(targetPath);
+		persistState({ currentDeckPath: targetPath, pendingDeckPath: undefined });
 	});
 
 	pi.on("agent_end", async (_event, _ctx) => {
@@ -187,4 +245,17 @@ export default function slidedeckExtension(pi: ExtensionAPI): void {
 	pi.on("session_shutdown", async (_event, _ctx) => {
 		activeFlow = false;
 	});
+}
+
+function isMutatingShellCommand(command: string): boolean {
+	const trimmed = command.trim();
+	if (!trimmed) {
+		return false;
+	}
+
+	return (
+		/(^|[;&|()]\s*)(cp|mv|rm|touch|mkdir|rmdir|install|ln|tee)\b/.test(trimmed) ||
+		/(^|\s)(sed|perl)\s+-i\b/.test(trimmed) ||
+		/(^|\s)>>?(?!&)/.test(trimmed)
+	);
 }

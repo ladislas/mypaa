@@ -2,11 +2,16 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
 	buildSlidedeckPrompt,
+	getNextSlidedeckRevisionPath,
+	getSingleRefinementEditTargetPath,
 	getSlidedeckFileUrl,
 	getSlidedeckLocation,
 	getSlidedeckMarkdownLink,
+	getSlidedeckStateFromEntries,
 	getSessionSlidedeckDir,
+	isPiManagedSlidedeckFile,
 	isSessionSlidedeckFile,
+	parseStrictSlidedeckCopyCommand,
 	renderSlidedeckHtml,
 	resolveAgentDir,
 } from "./helpers.ts";
@@ -14,15 +19,20 @@ import {
 test("buildSlidedeckPrompt uses provided source material at the end", () => {
 	const prompt = buildSlidedeckPrompt("Issue #131: explain the HTML deck workflow", {
 		sessionDeckDir: "/Users/tester/.pi/agent/slidedecks/session-123",
-		lastDeckPath: "/Users/tester/.pi/agent/slidedecks/session-123/20260428-123456-deck-for-issue-131.html",
+		currentDeckPath: "/Users/tester/.pi/agent/slidedecks/session-123/20260428-123456-deck-for-issue-131.html",
+		pendingDeckPath: "/Users/tester/.pi/agent/slidedecks/session-123/20260428-123456-deck-for-issue-131-v2.html",
 	});
 	assert.match(prompt, /Use the save_slidedeck tool exactly once/);
+	assert.match(prompt, /### New deck creation/);
+	assert.match(prompt, /### Deck refinement/);
+	assert.match(prompt, /Never use save_slidedeck for refinement/);
+	assert.match(prompt, /exactly one bash command in the form `cp <source\.html> <target-vN\.html>`/);
+	assert.match(prompt, /Allow only plain edit, edit\.multi, or a single-file edit\.patch `Update File`/);
 	assert.match(prompt, /Use these patterns exactly/);
 	assert.match(prompt, /A Markdown link in the exact format `\[slidedeck\]\(<saved file path>\)`/);
-	assert.match(prompt, /copying it to a new `-v2`, `-v3`, etc\. HTML file/);
 	assert.match(prompt, /Preserve untouched slides verbatim/);
-	assert.match(prompt, /In-place edits are acceptable only for tiny fixes such as typos/);
-	assert.match(prompt, /Most recently returned deck in this session: \/Users\/tester\/\.pi\/agent\/slidedecks\/session-123\/20260428-123456-deck-for-issue-131\.html/);
+	assert.match(prompt, /Current deck tracked for this session: \/Users\/tester\/\.pi\/agent\/slidedecks\/session-123\/20260428-123456-deck-for-issue-131\.html/);
+	assert.match(prompt, /Pending fresh refinement copy for this session: \/Users\/tester\/\.pi\/agent\/slidedecks\/session-123\/20260428-123456-deck-for-issue-131-v2\.html/);
 	assert.match(prompt, /Current session deck directory: \/Users\/tester\/\.pi\/agent\/slidedecks\/session-123/);
 	assert.ok(prompt.endsWith("Source material:\nIssue #131: explain the HTML deck workflow"));
 });
@@ -59,6 +69,134 @@ test("isSessionSlidedeckFile only allows HTML decks in the current session dir",
 	assert.equal(isSessionSlidedeckFile(`${sessionDeckDir}/notes.txt`, sessionDeckDir), false);
 	assert.equal(isSessionSlidedeckFile("/Users/tester/.pi/agent/slidedecks/session-999/deck.html", sessionDeckDir), false);
 	assert.equal(isSessionSlidedeckFile("/Users/tester/dev/mypac/deck.html", sessionDeckDir), false);
+});
+
+test("isPiManagedSlidedeckFile allows decks from any Pi-managed session dir", () => {
+	const agentDir = "/Users/tester/.pi/agent";
+
+	assert.equal(isPiManagedSlidedeckFile("/Users/tester/.pi/agent/slidedecks/session-123/deck.html", agentDir), true);
+	assert.equal(isPiManagedSlidedeckFile("/Users/tester/.pi/agent/slidedecks/session-999/deck-v2.html", agentDir), true);
+	assert.equal(isPiManagedSlidedeckFile("/Users/tester/.pi/agent/notes/deck.html", agentDir), false);
+});
+
+test("getNextSlidedeckRevisionPath picks the next fresh revision in the current session dir", () => {
+	assert.equal(
+		getNextSlidedeckRevisionPath(
+			"/Users/tester/.pi/agent/slidedecks/session-999/20260428-123456-review-deck.html",
+			"/Users/tester/.pi/agent/slidedecks/session-123",
+			[
+				"20260428-123456-review-deck.html",
+				"20260428-123456-review-deck-v2.html",
+				"20260428-123456-review-deck-v3.html",
+			],
+		),
+		"/Users/tester/.pi/agent/slidedecks/session-123/20260428-123456-review-deck-v4.html",
+	);
+	assert.equal(
+		getNextSlidedeckRevisionPath(
+			"/Users/tester/.pi/agent/slidedecks/session-123/20260428-123456-review-deck-v4.html",
+			"/Users/tester/.pi/agent/slidedecks/session-123",
+			["20260428-123456-review-deck-v2.html", "20260428-123456-review-deck-v4.html"],
+		),
+		"/Users/tester/.pi/agent/slidedecks/session-123/20260428-123456-review-deck-v5.html",
+	);
+});
+
+test("getSlidedeckStateFromEntries restores current and pending refinement state", () => {
+	const state = getSlidedeckStateFromEntries([
+		{
+			type: "message",
+			message: {
+				role: "toolResult",
+				toolName: "save_slidedeck",
+				details: { path: "/Users/tester/.pi/agent/slidedecks/session-123/base.html" },
+			},
+		},
+		{
+			type: "custom",
+			customType: "slidedeck-state",
+			data: {
+				currentDeckPath: "/Users/tester/.pi/agent/slidedecks/session-123/base.html",
+				pendingDeckPath: "/Users/tester/.pi/agent/slidedecks/session-123/base-v2.html",
+			},
+		},
+		{
+			type: "custom",
+			customType: "slidedeck-state",
+			data: {
+				currentDeckPath: "/Users/tester/.pi/agent/slidedecks/session-123/base-v2.html",
+			},
+		},
+	]);
+
+	assert.deepEqual(state, {
+		currentDeckPath: "/Users/tester/.pi/agent/slidedecks/session-123/base-v2.html",
+	});
+});
+
+test("getSingleRefinementEditTargetPath supports plain, multi, and single-file patch updates only", () => {
+	assert.equal(
+		getSingleRefinementEditTargetPath({
+			path: "/Users/tester/.pi/agent/slidedecks/session-123/base-v2.html",
+			oldText: "old",
+			newText: "new",
+		}),
+		"/Users/tester/.pi/agent/slidedecks/session-123/base-v2.html",
+	);
+	assert.equal(
+		getSingleRefinementEditTargetPath({
+			path: "/Users/tester/.pi/agent/slidedecks/session-123/base-v2.html",
+			multi: [
+				{ oldText: "old", newText: "new" },
+				{ path: "/Users/tester/.pi/agent/slidedecks/session-123/base-v2.html", oldText: "before", newText: "after" },
+			],
+		}),
+		"/Users/tester/.pi/agent/slidedecks/session-123/base-v2.html",
+	);
+	assert.equal(
+		getSingleRefinementEditTargetPath({
+			patch: [
+				"*** Begin Patch",
+				"*** Update File: /Users/tester/.pi/agent/slidedecks/session-123/base-v2.html",
+				"@@",
+				"-old",
+				"+new",
+				"*** End Patch",
+			].join("\n"),
+		}),
+		"/Users/tester/.pi/agent/slidedecks/session-123/base-v2.html",
+	);
+	assert.equal(
+		getSingleRefinementEditTargetPath({
+			multi: [
+				{ path: "/Users/tester/.pi/agent/slidedecks/session-123/base-v2.html", oldText: "a", newText: "b" },
+				{ path: "/Users/tester/.pi/agent/slidedecks/session-123/other.html", oldText: "c", newText: "d" },
+			],
+		}),
+		undefined,
+	);
+	assert.equal(
+		getSingleRefinementEditTargetPath({
+			patch: [
+				"*** Begin Patch",
+				"*** Add File: /Users/tester/.pi/agent/slidedecks/session-123/base-v3.html",
+				"+new file",
+				"*** End Patch",
+			].join("\n"),
+		}),
+		undefined,
+	);
+});
+
+test("parseStrictSlidedeckCopyCommand only accepts a bare two-argument cp command", () => {
+	assert.deepEqual(
+		parseStrictSlidedeckCopyCommand('cp "/Users/tester/.pi/agent/slidedecks/session-123/base.html" "/Users/tester/.pi/agent/slidedecks/session-123/base-v2.html"'),
+		{
+			sourcePath: "/Users/tester/.pi/agent/slidedecks/session-123/base.html",
+			targetPath: "/Users/tester/.pi/agent/slidedecks/session-123/base-v2.html",
+		},
+	);
+	assert.equal(parseStrictSlidedeckCopyCommand("cp a.html b.html && echo done"), undefined);
 });
 
 test("getSlidedeckFileUrl converts saved paths to file URLs", () => {
