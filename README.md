@@ -53,6 +53,7 @@ For readability, the skill table below drops the `pac-` prefix in the display la
 | [`github`](skills/pac-github/SKILL.md) | Use the `gh` CLI for issues, PRs, workflow runs, and GitHub API queries |
 | [`github-issue-create`](skills/pac-github-issue-create/SKILL.md) | Create well-formed GitHub issues from inside the current repository |
 | [`grill-with-docs`](skills/pac-grill-with-docs/SKILL.md) | Grill issue-backed work, then persist durable outcomes to GitHub issue comments and sparing local context |
+| [`improve-architecture`](skills/pac-improve-architecture/SKILL.md) | Review a codebase for deepening opportunities, then grill a chosen architecture candidate |
 | [`librarian`](skills/pac-librarian/SKILL.md) | Cache and refresh remote git repositories locally for future reference work |
 | [`openspec-apply-change`](skills/pac-openspec-apply-change/SKILL.md) | Implement tasks from an OpenSpec change |
 | [`openspec-archive-change`](skills/pac-openspec-archive-change/SKILL.md) | Archive a completed OpenSpec change |
@@ -72,6 +73,7 @@ For readability, the skill table below drops the `pac-` prefix in the display la
 | [`/pac-lwot`](prompts/pac-lwot.md) | "Let's work on that" — turn a note, issue, PR, todo, or URL into a concrete plan and next steps |
 | [`/pac-ldit`](prompts/pac-ldit.md) | "Let's do it" — confirm and proceed with already-planned work |
 | [`/pac-grill-with-docs`](prompts/pac-grill-with-docs.md) | Grill issue-backed work and persist durable outcomes to GitHub issue notes and sparing local context |
+| [`/pac-improve-architecture`](prompts/pac-improve-architecture.md) | Review a codebase for deepening opportunities, then grill a chosen architecture candidate |
 | [`/pac-propose`](prompts/pac-propose.md) | Create a new OpenSpec change proposal in one step |
 | [`/pac-apply`](prompts/pac-apply.md) | Implement tasks from an OpenSpec change |
 | [`/pac-explore`](prompts/pac-explore.md) | Enter exploration mode to think through a problem before implementation |
