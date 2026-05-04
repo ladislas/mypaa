@@ -1554,23 +1554,26 @@ Preserve exact file paths, function names, and error messages where available.`;
 
 		endReviewInProgress = true;
 		try {
-			const choice = await ctx.ui.select("Finish review:", [
-				"Return only",
-				"Return and fix findings",
-				"Return and summarize",
-			]);
+			const endReviewOptions: Array<{ label: string; action: EndReviewAction }> = [
+				{ label: "Return only", action: "returnOnly" },
+				{ label: "Summarize and return", action: "returnAndSummarize" },
+				{ label: "Summarize, return, and fix findings", action: "returnAndFix" },
+			];
+			const choice = await ctx.ui.select(
+				"Finish review:",
+				endReviewOptions.map((option) => option.label),
+			);
 
 			if (choice === undefined) {
 				ctx.ui.notify("Cancelled. Use /review-end to try again.", "info");
 				return;
 			}
 
-			const action: EndReviewAction =
-				choice === "Return and fix findings"
-					? "returnAndFix"
-					: choice === "Return and summarize"
-						? "returnAndSummarize"
-						: "returnOnly";
+			const action = endReviewOptions.find((option) => option.label === choice)?.action;
+			if (!action) {
+				ctx.ui.notify("Unknown review action selected. Use /review-end to try again.", "error");
+				return;
+			}
 
 			await executeEndReviewAction(ctx, action, {
 				showSummaryLoader: true,
