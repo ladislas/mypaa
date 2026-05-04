@@ -49,7 +49,6 @@ import { loadPackageSkill } from "../../lib/skill-loader.ts";
 import {
 	type ReviewTarget,
 	UNCOMMITTED_PROMPT,
-	LOCAL_CHANGES_REVIEW_INSTRUCTIONS,
 	BASE_BRANCH_PROMPT_WITH_MERGE_BASE,
 	BASE_BRANCH_PROMPT_FALLBACK,
 	COMMIT_PROMPT_WITH_TITLE,
@@ -57,7 +56,6 @@ import {
 	PULL_REQUEST_PROMPT,
 	PULL_REQUEST_PROMPT_FALLBACK,
 	FOLDER_REVIEW_PROMPT,
-	hasBlockingReviewFindings,
 	parsePrReference,
 	parseReviewPaths,
 	parseArgs,
@@ -71,16 +69,13 @@ import {
 // This is intentional - the UI and /review-end command assume a single active review.
 let reviewOriginId: string | undefined = undefined;
 let endReviewInProgress = false;
-let reviewLoopFixingEnabled = false;
 let reviewCustomInstructions: string | undefined = undefined;
-let reviewLoopInProgress = false;
 
 const REVIEW_STATE_TYPE = "review-session";
 const REVIEW_ANCHOR_TYPE = "review-anchor";
 const REVIEW_SETTINGS_TYPE = "review-settings";
-const REVIEW_LOOP_MAX_ITERATIONS = 10;
-const REVIEW_LOOP_START_TIMEOUT_MS = 15000;
-const REVIEW_LOOP_START_POLL_MS = 50;
+const PR_CHECKOUT_BLOCKED_BY_PENDING_CHANGES_MESSAGE =
+	"Cannot checkout PR: you have uncommitted changes. Please commit or stash them first.";
 
 type ReviewExtensionDeps = {
 	loadPackageSkill?: typeof loadPackageSkill;
@@ -93,7 +88,6 @@ type ReviewSessionState = {
 };
 
 type ReviewSettingsState = {
-	loopFixingEnabled?: boolean;
 	customInstructions?: string;
 };
 
@@ -105,11 +99,7 @@ function setReviewWidget(ctx: ExtensionContext, active: boolean) {
 	}
 
 	ctx.ui.setWidget("review", (_tui, theme) => {
-		const message = reviewLoopInProgress
-			? "Review session active (loop fixing running)"
-			: reviewLoopFixingEnabled
-				? "Review session active (loop fixing enabled), return with /review-end"
-				: "Review session active, return with /review-end";
+		const message = "Review session active, return with /review-end";
 		const text = new Text(theme.fg("warning", message), 0, 0);
 		return {
 			render(width: number) {
@@ -155,14 +145,12 @@ function getReviewSettings(ctx: ExtensionContext): ReviewSettingsState {
 	}
 
 	return {
-		loopFixingEnabled: state?.loopFixingEnabled === true,
 		customInstructions: state?.customInstructions?.trim() || undefined,
 	};
 }
 
 function applyReviewSettings(ctx: ExtensionContext) {
 	const state = getReviewSettings(ctx);
-	reviewLoopFixingEnabled = state.loopFixingEnabled === true;
 	reviewCustomInstructions = state.customInstructions?.trim() || undefined;
 }
 
@@ -353,20 +341,16 @@ async function getDefaultBranch(pi: ExtensionAPI): Promise<string> {
 async function buildReviewPrompt(
 	pi: ExtensionAPI,
 	target: ReviewTarget,
-	options?: { includeLocalChanges?: boolean },
 ): Promise<string> {
-	const includeLocalChanges = options?.includeLocalChanges === true;
-
 	switch (target.type) {
 		case "uncommitted":
 			return UNCOMMITTED_PROMPT;
 
 		case "baseBranch": {
 			const mergeBase = await getMergeBase(pi, target.branch);
-			const basePrompt = mergeBase
+			return mergeBase
 				? BASE_BRANCH_PROMPT_WITH_MERGE_BASE.replace(/{baseBranch}/g, target.branch).replace(/{mergeBaseSha}/g, mergeBase)
 				: BASE_BRANCH_PROMPT_FALLBACK.replace(/{branch}/g, target.branch);
-			return includeLocalChanges ? `${basePrompt} ${LOCAL_CHANGES_REVIEW_INSTRUCTIONS}` : basePrompt;
 		}
 
 		case "commit":
@@ -377,7 +361,7 @@ async function buildReviewPrompt(
 
 		case "pullRequest": {
 			const mergeBase = await getMergeBase(pi, target.baseBranch);
-			const basePrompt = mergeBase
+			return mergeBase
 				? PULL_REQUEST_PROMPT
 						.replace(/{prNumber}/g, String(target.prNumber))
 						.replace(/{title}/g, target.title)
@@ -387,7 +371,6 @@ async function buildReviewPrompt(
 						.replace(/{prNumber}/g, String(target.prNumber))
 						.replace(/{title}/g, target.title)
 						.replace(/{baseBranch}/g, target.baseBranch);
-			return includeLocalChanges ? `${basePrompt} ${LOCAL_CHANGES_REVIEW_INSTRUCTIONS}` : basePrompt;
 		}
 
 		case "folder":
@@ -404,11 +387,9 @@ const REVIEW_PRESETS = [
 	{ value: "folder", label: "Review a folder (or more)", description: "(snapshot, not diff)" },
 ] as const;
 
-const TOGGLE_LOOP_FIXING_VALUE = "toggleLoopFixing" as const;
 const TOGGLE_CUSTOM_INSTRUCTIONS_VALUE = "toggleCustomInstructions" as const;
 type ReviewPresetValue =
 	| (typeof REVIEW_PRESETS)[number]["value"]
-	| typeof TOGGLE_LOOP_FIXING_VALUE
 	| typeof TOGGLE_CUSTOM_INSTRUCTIONS_VALUE;
 
 export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionDeps = {}) {
@@ -416,14 +397,8 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 
 	function persistReviewSettings() {
 		pi.appendEntry(REVIEW_SETTINGS_TYPE, {
-			loopFixingEnabled: reviewLoopFixingEnabled,
 			customInstructions: reviewCustomInstructions,
 		});
-	}
-
-	function setReviewLoopFixingEnabled(enabled: boolean) {
-		reviewLoopFixingEnabled = enabled;
-		persistReviewSettings();
 	}
 
 	function setReviewCustomInstructions(instructions: string | undefined) {
@@ -434,6 +409,79 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 	function applyAllReviewState(ctx: ExtensionContext) {
 		applyReviewSettings(ctx);
 		applyReviewState(ctx);
+	}
+
+	async function ensureGithubCliReady(ctx: ExtensionContext): Promise<boolean> {
+		const ghVersion = await pi.exec("gh", ["--version"]);
+		if (ghVersion.code !== 0) {
+			ctx.ui.notify("PR review requires GitHub CLI (`gh`). Install it and try again.", "error");
+			return false;
+		}
+
+		const ghAuthStatus = await pi.exec("gh", ["auth", "status"]);
+		if (ghAuthStatus.code !== 0) {
+			ctx.ui.notify(
+				"GitHub CLI is installed, but you're not signed in. Run `gh auth login`, then verify with `gh auth status`.",
+				"error",
+			);
+			return false;
+		}
+
+		return true;
+	}
+
+	async function resolvePullRequestTarget(
+		ctx: ExtensionContext,
+		ref: string,
+		options: { skipInitialPendingChangesCheck?: boolean } = {},
+	): Promise<ReviewTarget | null> {
+		if (!(await ensureGithubCliReady(ctx))) {
+			return null;
+		}
+
+		if (!options.skipInitialPendingChangesCheck && (await hasPendingChanges(pi))) {
+			ctx.ui.notify(PR_CHECKOUT_BLOCKED_BY_PENDING_CHANGES_MESSAGE, "error");
+			return null;
+		}
+
+		const prNumber = parsePrReference(ref);
+		if (!prNumber) {
+			ctx.ui.notify("Invalid PR reference. Enter a number or GitHub PR URL.", "error");
+			return null;
+		}
+
+		ctx.ui.notify(`Fetching PR #${prNumber} info...`, "info");
+		const prInfo = await getPrInfo(pi, prNumber);
+
+		if (!prInfo) {
+			ctx.ui.notify(
+				`Could not fetch PR #${prNumber}. Make sure it exists and your GitHub auth has access (check with \`gh auth status\`).`,
+				"error",
+			);
+			return null;
+		}
+
+		if (await hasPendingChanges(pi)) {
+			ctx.ui.notify(PR_CHECKOUT_BLOCKED_BY_PENDING_CHANGES_MESSAGE, "error");
+			return null;
+		}
+
+		ctx.ui.notify(`Checking out PR #${prNumber}...`, "info");
+		const checkoutResult = await checkoutPr(pi, prNumber);
+
+		if (!checkoutResult.success) {
+			ctx.ui.notify(`Failed to checkout PR: ${checkoutResult.error}`, "error");
+			return null;
+		}
+
+		ctx.ui.notify(`Checked out PR #${prNumber} (${prInfo.headBranch})`, "info");
+
+		return {
+			type: "pullRequest",
+			prNumber,
+			baseBranch: prInfo.baseBranch,
+			title: prInfo.title,
+		};
 	}
 
 	pi.on("session_start", (_event, ctx) => {
@@ -484,8 +532,6 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 			const customInstructionsDescription = reviewCustomInstructions
 				? "(currently set)"
 				: "(applies to all review modes)";
-			const loopToggleLabel = reviewLoopFixingEnabled ? "Disable Loop Fixing" : "Enable Loop Fixing";
-			const loopToggleDescription = reviewLoopFixingEnabled ? "(currently on)" : "(currently off)";
 			const items: SelectItem[] = [
 				...presetItems,
 				{
@@ -493,7 +539,6 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 					label: customInstructionsLabel,
 					description: customInstructionsDescription,
 				},
-				{ value: TOGGLE_LOOP_FIXING_VALUE, label: loopToggleLabel, description: loopToggleDescription },
 			];
 
 			const result = await ctx.ui.custom<ReviewPresetValue | null>((tui, theme, _kb, done) => {
@@ -537,13 +582,6 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 
 			if (!result) return null;
 
-			if (result === TOGGLE_LOOP_FIXING_VALUE) {
-				const nextEnabled = !reviewLoopFixingEnabled;
-				setReviewLoopFixingEnabled(nextEnabled);
-				ctx.ui.notify(nextEnabled ? "Loop fixing enabled" : "Loop fixing disabled", "info");
-				continue;
-			}
-
 			if (result === TOGGLE_CUSTOM_INSTRUCTIONS_VALUE) {
 				if (reviewCustomInstructions) {
 					setReviewCustomInstructions(undefined);
@@ -578,10 +616,6 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 				}
 
 				case "commit": {
-					if (reviewLoopFixingEnabled) {
-						ctx.ui.notify("Loop mode does not work with commit review.", "error");
-						break;
-					}
 					const target = await showCommitSelector(ctx);
 					if (target) return target;
 					break;
@@ -845,9 +879,15 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 	 * Show PR input and handle checkout
 	 */
 	async function showPrInput(ctx: ExtensionContext): Promise<ReviewTarget | null> {
-		// First check for pending changes that would prevent branch switching
+		// Check gh availability before showing the input dialog so users get
+		// immediate feedback rather than an error after they've typed a PR ref.
+		if (!(await ensureGithubCliReady(ctx))) {
+			return null;
+		}
+
+		// Check for pending changes that would prevent branch switching
 		if (await hasPendingChanges(pi)) {
-			ctx.ui.notify("Cannot checkout PR: you have uncommitted changes. Please commit or stash them first.", "error");
+			ctx.ui.notify(PR_CHECKOUT_BLOCKED_BY_PENDING_CHANGES_MESSAGE, "error");
 			return null;
 		}
 
@@ -859,44 +899,7 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 
 		if (!prRef?.trim()) return null;
 
-		const prNumber = parsePrReference(prRef);
-		if (!prNumber) {
-			ctx.ui.notify("Invalid PR reference. Enter a number or GitHub PR URL.", "error");
-			return null;
-		}
-
-		// Get PR info from GitHub
-		ctx.ui.notify(`Fetching PR #${prNumber} info...`, "info");
-		const prInfo = await getPrInfo(pi, prNumber);
-
-		if (!prInfo) {
-			ctx.ui.notify(`Could not find PR #${prNumber}. Make sure gh is authenticated and the PR exists.`, "error");
-			return null;
-		}
-
-		// Check again for pending changes (in case something changed)
-		if (await hasPendingChanges(pi)) {
-			ctx.ui.notify("Cannot checkout PR: you have uncommitted changes. Please commit or stash them first.", "error");
-			return null;
-		}
-
-		// Checkout the PR
-		ctx.ui.notify(`Checking out PR #${prNumber}...`, "info");
-		const checkoutResult = await checkoutPr(pi, prNumber);
-
-		if (!checkoutResult.success) {
-			ctx.ui.notify(`Failed to checkout PR: ${checkoutResult.error}`, "error");
-			return null;
-		}
-
-		ctx.ui.notify(`Checked out PR #${prNumber} (${prInfo.headBranch})`, "info");
-
-		return {
-			type: "pullRequest",
-			prNumber,
-			baseBranch: prInfo.baseBranch,
-			title: prInfo.title,
-		};
+		return await resolvePullRequestTarget(ctx, prRef, { skipInitialPendingChangesCheck: true });
 	}
 
 	/**
@@ -906,7 +909,7 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 		ctx: ExtensionCommandContext,
 		target: ReviewTarget,
 		useFreshSession: boolean,
-		options?: { includeLocalChanges?: boolean; extraInstruction?: string },
+		options?: { extraInstruction?: string },
 	): Promise<boolean> {
 		// Check if we're already in a review
 		if (reviewOriginId) {
@@ -914,9 +917,7 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 			return false;
 		}
 
-		const focusPrompt = await buildReviewPrompt(pi, target, {
-			includeLocalChanges: options?.includeLocalChanges === true,
-		});
+		const focusPrompt = await buildReviewPrompt(pi, target);
 		const hint = getUserFacingHint(target);
 		const sessionName = buildReviewSessionName(target);
 
@@ -1013,232 +1014,7 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 	 * Handle PR checkout and return a ReviewTarget (or null on failure)
 	 */
 	async function handlePrCheckout(ctx: ExtensionContext, ref: string): Promise<ReviewTarget | null> {
-		// First check for pending changes
-		if (await hasPendingChanges(pi)) {
-			ctx.ui.notify("Cannot checkout PR: you have uncommitted changes. Please commit or stash them first.", "error");
-			return null;
-		}
-
-		const prNumber = parsePrReference(ref);
-		if (!prNumber) {
-			ctx.ui.notify("Invalid PR reference. Enter a number or GitHub PR URL.", "error");
-			return null;
-		}
-
-		// Get PR info
-		ctx.ui.notify(`Fetching PR #${prNumber} info...`, "info");
-		const prInfo = await getPrInfo(pi, prNumber);
-
-		if (!prInfo) {
-			ctx.ui.notify(`Could not find PR #${prNumber}. Make sure gh is authenticated and the PR exists.`, "error");
-			return null;
-		}
-
-		// Checkout the PR
-		ctx.ui.notify(`Checking out PR #${prNumber}...`, "info");
-		const checkoutResult = await checkoutPr(pi, prNumber);
-
-		if (!checkoutResult.success) {
-			ctx.ui.notify(`Failed to checkout PR: ${checkoutResult.error}`, "error");
-			return null;
-		}
-
-		ctx.ui.notify(`Checked out PR #${prNumber} (${prInfo.headBranch})`, "info");
-
-		return {
-			type: "pullRequest",
-			prNumber,
-			baseBranch: prInfo.baseBranch,
-			title: prInfo.title,
-		};
-	}
-
-	function isLoopCompatibleTarget(target: ReviewTarget): boolean {
-		if (target.type !== "commit") {
-			return true;
-		}
-
-		return false;
-	}
-
-	type AssistantSnapshot = {
-		id: string;
-		text: string;
-		stopReason?: string;
-	};
-
-	function extractAssistantTextContent(content: unknown): string {
-		if (typeof content === "string") {
-			return content.trim();
-		}
-
-		if (!Array.isArray(content)) {
-			return "";
-		}
-
-		const textParts = content
-			.filter(
-				(part): part is { type: "text"; text: string } =>
-					Boolean(part && typeof part === "object" && "type" in part && part.type === "text" && "text" in part),
-			)
-			.map((part) => part.text);
-		return textParts.join("\n").trim();
-	}
-
-	function getLastAssistantSnapshot(ctx: ExtensionContext): AssistantSnapshot | null {
-		const entries = ctx.sessionManager.getBranch();
-		for (let i = entries.length - 1; i >= 0; i--) {
-			const entry = entries[i];
-			if (entry.type !== "message" || entry.message.role !== "assistant") {
-				continue;
-			}
-
-			const assistantMessage = entry.message as { content?: unknown; stopReason?: string };
-			return {
-				id: entry.id,
-				text: extractAssistantTextContent(assistantMessage.content),
-				stopReason: assistantMessage.stopReason,
-			};
-		}
-
-		return null;
-	}
-
-	function sleep(ms: number): Promise<void> {
-		return new Promise((resolve) => setTimeout(resolve, ms));
-	}
-
-	async function waitForLoopTurnToStart(ctx: ExtensionContext, previousAssistantId?: string): Promise<boolean> {
-		const deadline = Date.now() + REVIEW_LOOP_START_TIMEOUT_MS;
-
-		while (Date.now() < deadline) {
-			const lastAssistantId = getLastAssistantSnapshot(ctx)?.id;
-			if (!ctx.isIdle() || ctx.hasPendingMessages() || (lastAssistantId && lastAssistantId !== previousAssistantId)) {
-				return true;
-			}
-			await sleep(REVIEW_LOOP_START_POLL_MS);
-		}
-
-		return false;
-	}
-
-	async function runLoopFixingReview(
-		ctx: ExtensionCommandContext,
-		target: ReviewTarget,
-		extraInstruction?: string,
-	): Promise<void> {
-		if (reviewLoopInProgress) {
-			ctx.ui.notify("Loop fixing review is already running.", "warning");
-			return;
-		}
-
-		reviewLoopInProgress = true;
-		setReviewWidget(ctx, Boolean(reviewOriginId));
-		try {
-			ctx.ui.notify(
-				"Loop fixing enabled: using New session mode and cycling until no blocking findings remain.",
-				"info",
-			);
-
-			for (let pass = 1; pass <= REVIEW_LOOP_MAX_ITERATIONS; pass++) {
-				const reviewBaselineAssistantId = getLastAssistantSnapshot(ctx)?.id;
-				const started = await executeReview(ctx, target, true, {
-					includeLocalChanges: true,
-					extraInstruction,
-				});
-				if (!started) {
-					ctx.ui.notify("Loop fixing stopped before starting the review pass.", "warning");
-					return;
-				}
-
-				const reviewTurnStarted = await waitForLoopTurnToStart(ctx, reviewBaselineAssistantId);
-				if (!reviewTurnStarted) {
-					ctx.ui.notify("Loop fixing stopped: review pass did not start in time.", "error");
-					return;
-				}
-
-				await ctx.waitForIdle();
-
-				const reviewSnapshot = getLastAssistantSnapshot(ctx);
-				if (!reviewSnapshot || reviewSnapshot.id === reviewBaselineAssistantId) {
-					ctx.ui.notify("Loop fixing stopped: could not read the review result.", "warning");
-					return;
-				}
-
-				if (reviewSnapshot.stopReason === "aborted") {
-					ctx.ui.notify("Loop fixing stopped: review was aborted.", "warning");
-					return;
-				}
-
-				if (reviewSnapshot.stopReason === "error") {
-					ctx.ui.notify("Loop fixing stopped: review failed with an error.", "error");
-					return;
-				}
-
-				if (reviewSnapshot.stopReason === "length") {
-					ctx.ui.notify("Loop fixing stopped: review output was truncated (stopReason=length).", "warning");
-					return;
-				}
-
-				if (!hasBlockingReviewFindings(reviewSnapshot.text)) {
-					const finalized = await executeEndReviewAction(ctx, "returnAndSummarize", {
-						showSummaryLoader: true,
-						notifySuccess: false,
-					});
-					if (finalized !== "ok") {
-						return;
-					}
-
-					ctx.ui.notify("Loop fixing complete: no blocking findings remain.", "info");
-					return;
-				}
-
-				ctx.ui.notify(`Loop fixing pass ${pass}: found blocking findings, returning to fix them...`, "info");
-
-				const fixBaselineAssistantId = getLastAssistantSnapshot(ctx)?.id;
-				const sentFixPrompt = await executeEndReviewAction(ctx, "returnAndFix", {
-					showSummaryLoader: true,
-					notifySuccess: false,
-				});
-				if (sentFixPrompt !== "ok") {
-					return;
-				}
-
-				const fixTurnStarted = await waitForLoopTurnToStart(ctx, fixBaselineAssistantId);
-				if (!fixTurnStarted) {
-					ctx.ui.notify("Loop fixing stopped: fix pass did not start in time.", "error");
-					return;
-				}
-
-				await ctx.waitForIdle();
-
-				const fixSnapshot = getLastAssistantSnapshot(ctx);
-				if (!fixSnapshot || fixSnapshot.id === fixBaselineAssistantId) {
-					ctx.ui.notify("Loop fixing stopped: could not read the fix pass result.", "warning");
-					return;
-				}
-				if (fixSnapshot.stopReason === "aborted") {
-					ctx.ui.notify("Loop fixing stopped: fix pass was aborted.", "warning");
-					return;
-				}
-				if (fixSnapshot.stopReason === "error") {
-					ctx.ui.notify("Loop fixing stopped: fix pass failed with an error.", "error");
-					return;
-				}
-				if (fixSnapshot.stopReason === "length") {
-					ctx.ui.notify("Loop fixing stopped: fix pass output was truncated (stopReason=length).", "warning");
-					return;
-				}
-			}
-
-			ctx.ui.notify(
-				`Loop fixing stopped after ${REVIEW_LOOP_MAX_ITERATIONS} passes (safety limit reached).`,
-				"warning",
-			);
-		} finally {
-			reviewLoopInProgress = false;
-			setReviewWidget(ctx, Boolean(reviewOriginId));
-		}
+		return await resolvePullRequestTarget(ctx, ref);
 	}
 
 	// Register the /review-start command
@@ -1247,11 +1023,6 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 		handler: async (args, ctx) => {
 			if (!ctx.hasUI) {
 				ctx.ui.notify("Review requires interactive mode", "error");
-				return;
-			}
-
-			if (reviewLoopInProgress) {
-				ctx.ui.notify("Loop fixing review is already running.", "warning");
 				return;
 			}
 
@@ -1303,20 +1074,6 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 
 				if (!target) {
 					ctx.ui.notify("Review cancelled", "info");
-					return;
-				}
-
-				if (reviewLoopFixingEnabled && !isLoopCompatibleTarget(target)) {
-					ctx.ui.notify("Loop mode does not work with commit review.", "error");
-					if (fromSelector) {
-						target = null;
-						continue;
-					}
-					return;
-				}
-
-				if (reviewLoopFixingEnabled) {
-					await runLoopFixingReview(ctx, target, extraInstruction);
 					return;
 				}
 
@@ -1535,11 +1292,6 @@ Preserve exact file paths, function names, and error messages where available.`;
 			return;
 		}
 
-		if (reviewLoopInProgress) {
-			ctx.ui.notify("Loop fixing review is running. Wait for it to finish.", "info");
-			return;
-		}
-
 		if (endReviewInProgress) {
 			ctx.ui.notify("/review-end is already running", "info");
 			return;
@@ -1547,23 +1299,26 @@ Preserve exact file paths, function names, and error messages where available.`;
 
 		endReviewInProgress = true;
 		try {
-			const choice = await ctx.ui.select("Finish review:", [
-				"Return only",
-				"Return and fix findings",
-				"Return and summarize",
-			]);
+			const endReviewOptions: Array<{ label: string; action: EndReviewAction }> = [
+				{ label: "Return only", action: "returnOnly" },
+				{ label: "Summarize and return", action: "returnAndSummarize" },
+				{ label: "Summarize, return, and fix findings", action: "returnAndFix" },
+			];
+			const choice = await ctx.ui.select(
+				"Finish review:",
+				endReviewOptions.map((option) => option.label),
+			);
 
 			if (choice === undefined) {
 				ctx.ui.notify("Cancelled. Use /review-end to try again.", "info");
 				return;
 			}
 
-			const action: EndReviewAction =
-				choice === "Return and fix findings"
-					? "returnAndFix"
-					: choice === "Return and summarize"
-						? "returnAndSummarize"
-						: "returnOnly";
+			const action = endReviewOptions.find((option) => option.label === choice)?.action;
+			if (!action) {
+				ctx.ui.notify("Unknown review action selected. Use /review-end to try again.", "error");
+				return;
+			}
 
 			await executeEndReviewAction(ctx, action, {
 				showSummaryLoader: true,
