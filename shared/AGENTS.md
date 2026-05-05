@@ -14,6 +14,7 @@ Before implementing:
 - If multiple interpretations exist, present them - don't pick silently.
 - If a simpler approach exists, say so. Push back when warranted.
 - If something is unclear, stop. Name what's confusing. Ask.
+- When asking a question with multiple choices, label choices with letters (`A.`, `B.`, `C.`), then state the recommended choice with a brief rationale.
 
 ## 2. Simplicity First
 
