@@ -91,6 +91,10 @@ type ReviewSettingsState = {
 	customInstructions?: string;
 };
 
+type OptionalReviewInstructionResult =
+	| { cancelled: true }
+	| { cancelled: false; instruction?: string };
+
 function setReviewWidget(ctx: ExtensionContext, active: boolean) {
 	if (!ctx.hasUI) return;
 	if (!active) {
@@ -404,6 +408,48 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 	function setReviewCustomInstructions(instructions: string | undefined) {
 		reviewCustomInstructions = instructions?.trim() || undefined;
 		persistReviewSettings();
+	}
+
+	async function promptForOptionalReviewInstruction(ctx: ExtensionContext): Promise<OptionalReviewInstructionResult> {
+		return await ctx.ui.custom<OptionalReviewInstructionResult>((tui, theme, _keybindings, done) => {
+			const container = new Container();
+			container.addChild(new DynamicBorder((str: string) => theme.fg("accent", str)));
+			container.addChild(new Text(theme.fg("accent", theme.bold("Optional: add a custom instruction for this review"))));
+
+			const input = new Input();
+			input.onSubmit = (value) => done({ cancelled: false, instruction: value.trim() || undefined });
+			input.onEscape = () => done({ cancelled: true });
+			container.addChild(input);
+
+			container.addChild(new Text(theme.fg("dim", "Enter empty to skip • enter with text to apply • esc to cancel")));
+			container.addChild(new DynamicBorder((str: string) => theme.fg("accent", str)));
+
+			return {
+				get focused() {
+					return input.focused;
+				},
+				set focused(value: boolean) {
+					input.focused = value;
+				},
+				render(width: number) {
+					return container.render(width);
+				},
+				invalidate() {
+					container.invalidate();
+				},
+				handleInput(data: string) {
+					input.handleInput(data);
+					tui.requestRender();
+				},
+			};
+		});
+	}
+
+	function appendExtraReviewInstruction(prompt: string, extraInstruction: string | undefined): string {
+		const trimmed = extraInstruction?.trim();
+		if (!trimmed) return prompt;
+
+		return `${prompt}\n\nAdditional user-provided review instruction:\n\n${trimmed}`;
 	}
 
 	function applyAllReviewState(ctx: ExtensionContext) {
@@ -991,9 +1037,7 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 			fullPrompt += `\n\nShared custom review instructions (applies to all reviews):\n\n${reviewCustomInstructions}`;
 		}
 
-		if (options?.extraInstruction?.trim()) {
-			fullPrompt += `\n\nAdditional user-provided review instruction:\n\n${options.extraInstruction.trim()}`;
-		}
+		fullPrompt = appendExtraReviewInstruction(fullPrompt, options?.extraInstruction);
 
 		if (projectGuidelines) {
 			fullPrompt += `\n\nThis project has additional instructions for code reviews:\n\n${projectGuidelines}`;
@@ -1100,6 +1144,15 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 					useFreshSession = choice === "New session";
 				}
 
+				if (fromSelector && !extraInstruction) {
+					const promptResult = await promptForOptionalReviewInstruction(ctx);
+					if (promptResult.cancelled) {
+						ctx.ui.notify("Review cancelled", "info");
+						return;
+					}
+					extraInstruction = promptResult.instruction;
+				}
+
 				await executeReview(ctx, target, useFreshSession, { extraInstruction });
 				return;
 			}
@@ -1155,6 +1208,7 @@ Preserve exact file paths, function names, and error messages where available.`;
 	type EndReviewActionOptions = {
 		showSummaryLoader?: boolean;
 		notifySuccess?: boolean;
+		extraInstruction?: string;
 	};
 
 	function getActiveReviewOrigin(ctx: ExtensionContext): string | undefined {
@@ -1187,7 +1241,10 @@ Preserve exact file paths, function names, and error messages where available.`;
 		ctx: ExtensionCommandContext,
 		originId: string,
 		showLoader: boolean,
+		extraInstruction?: string,
 	): Promise<{ cancelled: boolean; error?: string } | null> {
+		const summaryPrompt = appendExtraReviewInstruction(REVIEW_SUMMARY_PROMPT, extraInstruction);
+
 		if (showLoader && ctx.hasUI) {
 			return ctx.ui.custom<{ cancelled: boolean; error?: string } | null>((tui, theme, _kb, done) => {
 				const loader = new BorderedLoader(tui, theme, "Returning and summarizing review session...");
@@ -1195,7 +1252,7 @@ Preserve exact file paths, function names, and error messages where available.`;
 
 				ctx.navigateTree(originId, {
 					summarize: true,
-					customInstructions: REVIEW_SUMMARY_PROMPT,
+					customInstructions: summaryPrompt,
 					replaceInstructions: true,
 				})
 					.then(done)
@@ -1208,7 +1265,7 @@ Preserve exact file paths, function names, and error messages where available.`;
 		try {
 			return await ctx.navigateTree(originId, {
 				summarize: true,
-				customInstructions: REVIEW_SUMMARY_PROMPT,
+				customInstructions: summaryPrompt,
 				replaceInstructions: true,
 			});
 		} catch (error) {
@@ -1251,7 +1308,12 @@ Preserve exact file paths, function names, and error messages where available.`;
 			return "ok";
 		}
 
-		const summaryResult = await navigateWithSummary(ctx, originId, options.showSummaryLoader ?? false);
+		const summaryResult = await navigateWithSummary(
+			ctx,
+			originId,
+			options.showSummaryLoader ?? false,
+			options.extraInstruction,
+		);
 		if (summaryResult === null) {
 			ctx.ui.notify("Summarization cancelled. Use /review-end to try again.", "info");
 			return "cancelled";
@@ -1279,7 +1341,11 @@ Preserve exact file paths, function names, and error messages where available.`;
 			return "ok";
 		}
 
-		pi.sendUserMessage(buildReviewFixFindingsPrompt(reviewTargetType), { deliverAs: "followUp" });
+		const fixPrompt = appendExtraReviewInstruction(
+			buildReviewFixFindingsPrompt(reviewTargetType),
+			options.extraInstruction,
+		);
+		pi.sendUserMessage(fixPrompt, { deliverAs: "followUp" });
 		if (notifySuccess) {
 			ctx.ui.notify("Review complete! Returned and queued a follow-up to fix findings.", "info");
 		}
@@ -1320,9 +1386,20 @@ Preserve exact file paths, function names, and error messages where available.`;
 				return;
 			}
 
+			let extraInstruction: string | undefined;
+			if (action !== "returnOnly") {
+				const promptResult = await promptForOptionalReviewInstruction(ctx);
+				if (promptResult.cancelled) {
+					ctx.ui.notify("Cancelled. Use /review-end to try again.", "info");
+					return;
+				}
+				extraInstruction = promptResult.instruction;
+			}
+
 			await executeEndReviewAction(ctx, action, {
 				showSummaryLoader: true,
 				notifySuccess: true,
+				extraInstruction,
 			});
 		} finally {
 			endReviewInProgress = false;
