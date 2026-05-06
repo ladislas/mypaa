@@ -3,12 +3,9 @@
  * Original source: https://github.com/mitsuhiko/agent-stuff/blob/main/extensions/review.ts
  *
  * Provides a `/review-start` command that prompts the agent to review code changes.
- * Supports multiple review modes:
- * - Review a GitHub pull request (checks out the PR locally)
- * - Review against a base branch (PR style)
+ * Supports two review modes:
  * - Review uncommitted changes
- * - Review a specific commit
- * - Shared custom review instructions (applied to all review modes when configured)
+ * - Review against a base branch (PR style)
  *
  * Review guidelines live in skills/pac-review/SKILL.md and are injected into
  * the prompt at review time. Users can also invoke the skill directly in
@@ -16,20 +13,16 @@
  *
  * Usage:
  * - `/review-start` - show interactive selector
- * - `/review-start pr 123` - review PR #123 (checks out locally)
- * - `/review-start pr https://github.com/owner/repo/pull/123` - review PR from URL
  * - `/review-start uncommitted` - review uncommitted changes directly
  * - `/review-start branch main` - review against main branch
- * - `/review-start commit abc123` - review specific commit
- * - `/review-start folder src docs` - review specific folders/files (snapshot, not diff)
- * - `/review-start` selector includes Add/Remove custom review instructions (applies to all modes)
  * - `/review-start --extra "focus on performance regressions"` - add extra review instruction
  *
  * Project-specific review guidelines:
  * - If a REVIEW_GUIDELINES.md file exists in the same directory as .pi,
  *   its contents are appended to the review prompt.
  *
- * Note: PR review requires a clean working tree (no uncommitted changes to tracked files).
+ * Note: The extension opens a fresh session branch for the review and
+ * provides /review-end to return to the original position.
  */
 
 import type { ExtensionAPI, ExtensionContext, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
@@ -56,13 +49,6 @@ import {
 	UNCOMMITTED_PROMPT,
 	BASE_BRANCH_PROMPT_WITH_MERGE_BASE,
 	BASE_BRANCH_PROMPT_FALLBACK,
-	COMMIT_PROMPT_WITH_TITLE,
-	COMMIT_PROMPT,
-	PULL_REQUEST_PROMPT,
-	PULL_REQUEST_PROMPT_FALLBACK,
-	FOLDER_REVIEW_PROMPT,
-	parsePrReference,
-	parseReviewPaths,
 	parseArgs,
 	getUserFacingHint,
 	buildReviewSessionName,
@@ -74,13 +60,9 @@ import {
 // This is intentional - the UI and /review-end command assume a single active review.
 let reviewOriginId: string | undefined = undefined;
 let endReviewInProgress = false;
-let reviewCustomInstructions: string | undefined = undefined;
 
 const REVIEW_STATE_TYPE = "review-session";
 const REVIEW_ANCHOR_TYPE = "review-anchor";
-const REVIEW_SETTINGS_TYPE = "review-settings";
-const PR_CHECKOUT_BLOCKED_BY_PENDING_CHANGES_MESSAGE =
-	"Cannot checkout PR: you have uncommitted changes. Please commit or stash them first.";
 
 type ReviewExtensionDeps = {
 	loadPackageSkill?: typeof loadPackageSkill;
@@ -92,10 +74,6 @@ type ReviewSessionState = {
 	active: boolean;
 	originId?: string;
 	targetType?: ReviewTarget["type"];
-};
-
-type ReviewSettingsState = {
-	customInstructions?: string;
 };
 
 type OptionalReviewInstructionResult =
@@ -145,24 +123,6 @@ function applyReviewState(ctx: ExtensionContext) {
 
 	reviewOriginId = undefined;
 	setReviewWidget(ctx, false);
-}
-
-function getReviewSettings(ctx: ExtensionContext): ReviewSettingsState {
-	let state: ReviewSettingsState | undefined;
-	for (const entry of ctx.sessionManager.getEntries()) {
-		if (entry.type === "custom" && entry.customType === REVIEW_SETTINGS_TYPE) {
-			state = entry.data as ReviewSettingsState | undefined;
-		}
-	}
-
-	return {
-		customInstructions: state?.customInstructions?.trim() || undefined,
-	};
-}
-
-function applyReviewSettings(ctx: ExtensionContext) {
-	const state = getReviewSettings(ctx);
-	reviewCustomInstructions = state.customInstructions?.trim() || undefined;
 }
 
 async function loadProjectReviewGuidelines(cwd: string): Promise<string | null> {
@@ -242,78 +202,11 @@ async function getLocalBranches(pi: ExtensionAPI): Promise<string[]> {
 }
 
 /**
- * Get list of recent commits
- */
-async function getRecentCommits(pi: ExtensionAPI, limit: number = 10): Promise<Array<{ sha: string; title: string }>> {
-	const { stdout, code } = await pi.exec("git", ["log", `--oneline`, `-n`, `${limit}`]);
-	if (code !== 0) return [];
-
-	return stdout
-		.trim()
-		.split("\n")
-		.filter((line) => line.trim())
-		.map((line) => {
-			const [sha, ...rest] = line.trim().split(" ");
-			return { sha, title: rest.join(" ") };
-		});
-}
-
-/**
  * Check if there are uncommitted changes (staged, unstaged, or untracked)
  */
 async function hasUncommittedChanges(pi: ExtensionAPI): Promise<boolean> {
 	const { stdout, code } = await pi.exec("git", ["status", "--porcelain"]);
 	return code === 0 && stdout.trim().length > 0;
-}
-
-/**
- * Check if there are changes that would prevent switching branches
- * (staged or unstaged changes to tracked files - untracked files are fine)
- */
-async function hasPendingChanges(pi: ExtensionAPI): Promise<boolean> {
-	const { stdout, code } = await pi.exec("git", ["status", "--porcelain"]);
-	if (code !== 0) return false;
-
-	// Filter out untracked files (lines starting with ??)
-	const lines = stdout.trim().split("\n").filter((line) => line.trim());
-	const trackedChanges = lines.filter((line) => !line.startsWith("??"));
-	return trackedChanges.length > 0;
-}
-
-/**
- * Get PR information from GitHub CLI
- */
-async function getPrInfo(pi: ExtensionAPI, prNumber: number): Promise<{ baseBranch: string; title: string; headBranch: string } | null> {
-	const { stdout, code } = await pi.exec("gh", [
-		"pr", "view", String(prNumber),
-		"--json", "baseRefName,title,headRefName",
-	]);
-
-	if (code !== 0) return null;
-
-	try {
-		const data = JSON.parse(stdout);
-		return {
-			baseBranch: data.baseRefName,
-			title: data.title,
-			headBranch: data.headRefName,
-		};
-	} catch {
-		return null;
-	}
-}
-
-/**
- * Checkout a PR using GitHub CLI
- */
-async function checkoutPr(pi: ExtensionAPI, prNumber: number): Promise<{ success: boolean; error?: string }> {
-	const { stdout, stderr, code } = await pi.exec("gh", ["pr", "checkout", String(prNumber)]);
-
-	if (code !== 0) {
-		return { success: false, error: stderr || stdout || "Failed to checkout PR" };
-	}
-
-	return { success: true };
 }
 
 /**
@@ -363,61 +256,21 @@ async function buildReviewPrompt(
 				? BASE_BRANCH_PROMPT_WITH_MERGE_BASE.replace(/{baseBranch}/g, target.branch).replace(/{mergeBaseSha}/g, mergeBase)
 				: BASE_BRANCH_PROMPT_FALLBACK.replace(/{branch}/g, target.branch);
 		}
-
-		case "commit":
-			if (target.title) {
-				return COMMIT_PROMPT_WITH_TITLE.replace("{sha}", target.sha).replace("{title}", target.title);
-			}
-			return COMMIT_PROMPT.replace("{sha}", target.sha);
-
-		case "pullRequest": {
-			const mergeBase = await getMergeBase(pi, target.baseBranch);
-			return mergeBase
-				? PULL_REQUEST_PROMPT
-						.replace(/{prNumber}/g, String(target.prNumber))
-						.replace(/{title}/g, target.title)
-						.replace(/{baseBranch}/g, target.baseBranch)
-						.replace(/{mergeBaseSha}/g, mergeBase)
-				: PULL_REQUEST_PROMPT_FALLBACK
-						.replace(/{prNumber}/g, String(target.prNumber))
-						.replace(/{title}/g, target.title)
-						.replace(/{baseBranch}/g, target.baseBranch);
-		}
-
-		case "folder":
-			return FOLDER_REVIEW_PROMPT.replace("{paths}", target.paths.join(", "));
 	}
 }
 
-// Review preset options for the selector (keep this order stable)
+// Review preset options for the selector
 const REVIEW_PRESETS = [
 	{ value: "uncommitted", label: "Review uncommitted changes", description: "" },
 	{ value: "baseBranch", label: "Review against a base branch", description: "(local)" },
-	{ value: "commit", label: "Review a commit", description: "" },
-	{ value: "pullRequest", label: "Review a pull request", description: "(GitHub PR)" },
-	{ value: "folder", label: "Review a folder (or more)", description: "(snapshot, not diff)" },
 ] as const;
 
-const TOGGLE_CUSTOM_INSTRUCTIONS_VALUE = "toggleCustomInstructions" as const;
-type ReviewPresetValue =
-	| (typeof REVIEW_PRESETS)[number]["value"]
-	| typeof TOGGLE_CUSTOM_INSTRUCTIONS_VALUE;
+type ReviewPresetValue = (typeof REVIEW_PRESETS)[number]["value"];
 
 export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionDeps = {}) {
 	const loadSkill = deps.loadPackageSkill ?? loadPackageSkill;
 	const loadReviewSummaryPrompt = deps.loadReviewSummaryPrompt ?? defaultLoadReviewSummaryPrompt;
 	const loadReviewFixFindingsPrompt = deps.loadReviewFixFindingsPrompt ?? defaultLoadReviewFixFindingsPrompt;
-
-	function persistReviewSettings() {
-		pi.appendEntry(REVIEW_SETTINGS_TYPE, {
-			customInstructions: reviewCustomInstructions,
-		});
-	}
-
-	function setReviewCustomInstructions(instructions: string | undefined) {
-		reviewCustomInstructions = instructions?.trim() || undefined;
-		persistReviewSettings();
-	}
 
 	async function promptForOptionalReviewInstruction(ctx: ExtensionContext): Promise<OptionalReviewInstructionResult> {
 		return await ctx.ui.custom<OptionalReviewInstructionResult>((tui, theme, _keybindings, done) => {
@@ -461,236 +314,92 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 		return `${prompt}\n\nAdditional user-provided review instruction:\n\n${trimmed}`;
 	}
 
-	function applyAllReviewState(ctx: ExtensionContext) {
-		applyReviewSettings(ctx);
-		applyReviewState(ctx);
-	}
-
-	async function ensureGithubCliReady(ctx: ExtensionContext): Promise<boolean> {
-		const ghVersion = await pi.exec("gh", ["--version"]);
-		if (ghVersion.code !== 0) {
-			ctx.ui.notify("PR review requires GitHub CLI (`gh`). Install it and try again.", "error");
-			return false;
-		}
-
-		const ghAuthStatus = await pi.exec("gh", ["auth", "status"]);
-		if (ghAuthStatus.code !== 0) {
-			ctx.ui.notify(
-				"GitHub CLI is installed, but you're not signed in. Run `gh auth login`, then verify with `gh auth status`.",
-				"error",
-			);
-			return false;
-		}
-
-		return true;
-	}
-
-	async function resolvePullRequestTarget(
-		ctx: ExtensionContext,
-		ref: string,
-		options: { skipInitialPendingChangesCheck?: boolean } = {},
-	): Promise<ReviewTarget | null> {
-		if (!(await ensureGithubCliReady(ctx))) {
-			return null;
-		}
-
-		if (!options.skipInitialPendingChangesCheck && (await hasPendingChanges(pi))) {
-			ctx.ui.notify(PR_CHECKOUT_BLOCKED_BY_PENDING_CHANGES_MESSAGE, "error");
-			return null;
-		}
-
-		const prNumber = parsePrReference(ref);
-		if (!prNumber) {
-			ctx.ui.notify("Invalid PR reference. Enter a number or GitHub PR URL.", "error");
-			return null;
-		}
-
-		ctx.ui.notify(`Fetching PR #${prNumber} info...`, "info");
-		const prInfo = await getPrInfo(pi, prNumber);
-
-		if (!prInfo) {
-			ctx.ui.notify(
-				`Could not fetch PR #${prNumber}. Make sure it exists and your GitHub auth has access (check with \`gh auth status\`).`,
-				"error",
-			);
-			return null;
-		}
-
-		if (await hasPendingChanges(pi)) {
-			ctx.ui.notify(PR_CHECKOUT_BLOCKED_BY_PENDING_CHANGES_MESSAGE, "error");
-			return null;
-		}
-
-		ctx.ui.notify(`Checking out PR #${prNumber}...`, "info");
-		const checkoutResult = await checkoutPr(pi, prNumber);
-
-		if (!checkoutResult.success) {
-			ctx.ui.notify(`Failed to checkout PR: ${checkoutResult.error}`, "error");
-			return null;
-		}
-
-		ctx.ui.notify(`Checked out PR #${prNumber} (${prInfo.headBranch})`, "info");
-
-		return {
-			type: "pullRequest",
-			prNumber,
-			baseBranch: prInfo.baseBranch,
-			title: prInfo.title,
-		};
-	}
-
 	pi.on("session_start", (_event, ctx) => {
-		applyAllReviewState(ctx);
+		applyReviewState(ctx);
 	});
 
 	pi.on("session_tree", (_event, ctx) => {
-		applyAllReviewState(ctx);
+		applyReviewState(ctx);
 	});
 
 	/**
 	 * Determine the smart default review type based on git state
 	 */
-	async function getSmartDefault(): Promise<"uncommitted" | "baseBranch" | "commit"> {
+	async function getSmartDefault(): Promise<"uncommitted" | "baseBranch"> {
 		// Priority 1: If there are uncommitted changes, default to reviewing them
 		if (await hasUncommittedChanges(pi)) {
 			return "uncommitted";
 		}
 
-		// Priority 2: If on a feature branch (not the default branch), default to PR-style review
-		const currentBranch = await getCurrentBranch(pi);
-		const defaultBranch = await getDefaultBranch(pi);
-		if (currentBranch && currentBranch !== defaultBranch) {
-			return "baseBranch";
-		}
-
-		// Priority 3: Default to reviewing a specific commit
-		return "commit";
+		// Priority 2: Default to PR-style review against base branch
+		return "baseBranch";
 	}
 
 	/**
 	 * Show the review preset selector
 	 */
 	async function showReviewSelector(ctx: ExtensionContext): Promise<ReviewTarget | null> {
-		// Determine smart default (but keep the list order stable)
+		// Determine smart default
 		const smartDefault = await getSmartDefault();
-		const presetItems: SelectItem[] = REVIEW_PRESETS.map((preset) => ({
+		const items: SelectItem[] = REVIEW_PRESETS.map((preset) => ({
 			value: preset.value,
 			label: preset.label,
 			description: preset.description,
 		}));
-		const smartDefaultIndex = presetItems.findIndex((item) => item.value === smartDefault);
+		const smartDefaultIndex = items.findIndex((item) => item.value === smartDefault);
 
-		while (true) {
-			const customInstructionsLabel = reviewCustomInstructions
-				? "Remove custom review instructions"
-				: "Add custom review instructions";
-			const customInstructionsDescription = reviewCustomInstructions
-				? "(currently set)"
-				: "(applies to all review modes)";
-			const items: SelectItem[] = [
-				...presetItems,
-				{
-					value: TOGGLE_CUSTOM_INSTRUCTIONS_VALUE,
-					label: customInstructionsLabel,
-					description: customInstructionsDescription,
-				},
-			];
+		const result = await ctx.ui.custom<ReviewPresetValue | null>((tui, theme, _kb, done) => {
+			const container = new Container();
+			container.addChild(new DynamicBorder((str) => theme.fg("accent", str)));
+			container.addChild(new Text(theme.fg("accent", theme.bold("Select a review preset"))));
 
-			const result = await ctx.ui.custom<ReviewPresetValue | null>((tui, theme, _kb, done) => {
-				const container = new Container();
-				container.addChild(new DynamicBorder((str) => theme.fg("accent", str)));
-				container.addChild(new Text(theme.fg("accent", theme.bold("Select a review preset"))));
-
-				const selectList = new SelectList(items, Math.min(items.length, 10), {
-					selectedPrefix: (text) => theme.fg("accent", text),
-					selectedText: (text) => theme.fg("accent", text),
-					description: (text) => theme.fg("muted", text),
-					scrollInfo: (text) => theme.fg("dim", text),
-					noMatch: (text) => theme.fg("warning", text),
-				});
-
-				// Preselect the smart default without reordering the list
-				if (smartDefaultIndex >= 0) {
-					selectList.setSelectedIndex(smartDefaultIndex);
-				}
-
-				selectList.onSelect = (item) => done(item.value as ReviewPresetValue);
-				selectList.onCancel = () => done(null);
-
-				container.addChild(selectList);
-				container.addChild(new Text(theme.fg("dim", "Press enter to confirm or esc to go back")));
-				container.addChild(new DynamicBorder((str) => theme.fg("accent", str)));
-
-				return {
-					render(width: number) {
-						return container.render(width);
-					},
-					invalidate() {
-						container.invalidate();
-					},
-					handleInput(data: string) {
-						selectList.handleInput(data);
-						tui.requestRender();
-					},
-				};
+			const selectList = new SelectList(items, Math.min(items.length, 10), {
+				selectedPrefix: (text) => theme.fg("accent", text),
+				selectedText: (text) => theme.fg("accent", text),
+				description: (text) => theme.fg("muted", text),
+				scrollInfo: (text) => theme.fg("dim", text),
+				noMatch: (text) => theme.fg("warning", text),
 			});
 
-			if (!result) return null;
-
-			if (result === TOGGLE_CUSTOM_INSTRUCTIONS_VALUE) {
-				if (reviewCustomInstructions) {
-					setReviewCustomInstructions(undefined);
-					ctx.ui.notify("Custom review instructions removed", "info");
-					continue;
-				}
-
-				const customInstructions = await ctx.ui.editor(
-					"Enter custom review instructions (applies to all review modes):",
-					"",
-				);
-
-				if (!customInstructions?.trim()) {
-					ctx.ui.notify("Custom review instructions not changed", "info");
-					continue;
-				}
-
-				setReviewCustomInstructions(customInstructions);
-				ctx.ui.notify("Custom review instructions saved", "info");
-				continue;
+			// Preselect the smart default without reordering the list
+			if (smartDefaultIndex >= 0) {
+				selectList.setSelectedIndex(smartDefaultIndex);
 			}
 
-			// Handle each preset type
-			switch (result) {
-				case "uncommitted":
-					return { type: "uncommitted" };
+			selectList.onSelect = (item) => done(item.value as ReviewPresetValue);
+			selectList.onCancel = () => done(null);
 
-				case "baseBranch": {
-					const target = await showBranchSelector(ctx);
-					if (target) return target;
-					break;
-				}
+			container.addChild(selectList);
+			container.addChild(new Text(theme.fg("dim", "Press enter to confirm or esc to go back")));
+			container.addChild(new DynamicBorder((str) => theme.fg("accent", str)));
 
-				case "commit": {
-					const target = await showCommitSelector(ctx);
-					if (target) return target;
-					break;
-				}
+			return {
+				render(width: number) {
+					return container.render(width);
+				},
+				invalidate() {
+					container.invalidate();
+				},
+				handleInput(data: string) {
+					selectList.handleInput(data);
+					tui.requestRender();
+				},
+			};
+		});
 
-				case "folder": {
-					const target = await showFolderInput(ctx);
-					if (target) return target;
-					break;
-				}
+		if (!result) return null;
 
-				case "pullRequest": {
-					const target = await showPrInput(ctx);
-					if (target) return target;
-					break;
-				}
+		switch (result) {
+			case "uncommitted":
+				return { type: "uncommitted" };
 
-				default:
-					return null;
+			case "baseBranch": {
+				const target = await showBranchSelector(ctx);
+				return target;
 			}
+
+			default:
+				return null;
 		}
 	}
 
@@ -809,155 +518,6 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 	}
 
 	/**
-	 * Show commit selector
-	 */
-	async function showCommitSelector(ctx: ExtensionContext): Promise<ReviewTarget | null> {
-		const commits = await getRecentCommits(pi, 20);
-
-		if (commits.length === 0) {
-			ctx.ui.notify("No commits found", "error");
-			return null;
-		}
-
-		const items: SelectItem[] = commits.map((commit) => ({
-			value: commit.sha,
-			label: `${commit.sha.slice(0, 7)} ${commit.title}`,
-			description: "",
-		}));
-
-		const result = await ctx.ui.custom<{ sha: string; title: string } | null>((tui, theme, keybindings, done) => {
-			const container = new Container();
-			container.addChild(new DynamicBorder((str) => theme.fg("accent", str)));
-			container.addChild(new Text(theme.fg("accent", theme.bold("Select commit to review"))));
-
-			const searchInput = new Input();
-			container.addChild(searchInput);
-			container.addChild(new Spacer(1));
-
-			const listContainer = new Container();
-			container.addChild(listContainer);
-			container.addChild(new Text(theme.fg("dim", "Type to filter • enter to select • esc to cancel")));
-			container.addChild(new DynamicBorder((str) => theme.fg("accent", str)));
-
-			let filteredItems = items;
-			let selectList: SelectList | null = null;
-
-			const updateList = () => {
-				listContainer.clear();
-				if (filteredItems.length === 0) {
-					listContainer.addChild(new Text(theme.fg("warning", "  No matching commits")));
-					selectList = null;
-					return;
-				}
-
-				selectList = new SelectList(filteredItems, Math.min(filteredItems.length, 10), {
-					selectedPrefix: (text) => theme.fg("accent", text),
-					selectedText: (text) => theme.fg("accent", text),
-					description: (text) => theme.fg("muted", text),
-					scrollInfo: (text) => theme.fg("dim", text),
-					noMatch: (text) => theme.fg("warning", text),
-				});
-
-				selectList.onSelect = (item) => {
-					const commit = commits.find((c) => c.sha === item.value);
-					if (commit) {
-						done(commit);
-					} else {
-						done(null);
-					}
-				};
-				selectList.onCancel = () => done(null);
-				listContainer.addChild(selectList);
-			};
-
-			const applyFilter = () => {
-				const query = searchInput.getValue();
-				filteredItems = query
-					? fuzzyFilter(items, query, (item) => `${item.label} ${item.value} ${item.description ?? ""}`)
-					: items;
-				updateList();
-			};
-
-			applyFilter();
-
-			return {
-				render(width: number) {
-					return container.render(width);
-				},
-				invalidate() {
-					container.invalidate();
-				},
-				handleInput(data: string) {
-					if (
-						keybindings.matches(data, "tui.select.up") ||
-						keybindings.matches(data, "tui.select.down") ||
-						keybindings.matches(data, "tui.select.confirm") ||
-						keybindings.matches(data, "tui.select.cancel")
-					) {
-						if (selectList) {
-							selectList.handleInput(data);
-						} else if (keybindings.matches(data, "tui.select.cancel")) {
-							done(null);
-						}
-						tui.requestRender();
-						return;
-					}
-
-					searchInput.handleInput(data);
-					applyFilter();
-					tui.requestRender();
-				},
-			};
-		});
-
-		if (!result) return null;
-		return { type: "commit", sha: result.sha, title: result.title };
-	}
-
-	/**
-	 * Show folder input
-	 */
-	async function showFolderInput(ctx: ExtensionContext): Promise<ReviewTarget | null> {
-		const result = await ctx.ui.editor(
-			"Enter folders/files to review (space-separated or one per line):",
-			".",
-		);
-
-		if (!result?.trim()) return null;
-		const paths = parseReviewPaths(result);
-		if (paths.length === 0) return null;
-
-		return { type: "folder", paths };
-	}
-
-	/**
-	 * Show PR input and handle checkout
-	 */
-	async function showPrInput(ctx: ExtensionContext): Promise<ReviewTarget | null> {
-		// Check gh availability before showing the input dialog so users get
-		// immediate feedback rather than an error after they've typed a PR ref.
-		if (!(await ensureGithubCliReady(ctx))) {
-			return null;
-		}
-
-		// Check for pending changes that would prevent branch switching
-		if (await hasPendingChanges(pi)) {
-			ctx.ui.notify(PR_CHECKOUT_BLOCKED_BY_PENDING_CHANGES_MESSAGE, "error");
-			return null;
-		}
-
-		// Get PR reference from user
-		const prRef = await ctx.ui.editor(
-			"Enter PR number or URL (e.g. 123 or https://github.com/owner/repo/pull/123):",
-			"",
-		);
-
-		if (!prRef?.trim()) return null;
-
-		return await resolvePullRequestTarget(ctx, prRef, { skipInitialPendingChangesCheck: true });
-	}
-
-	/**
 	 * Execute the review
 	 */
 	async function executeReview(
@@ -1042,10 +602,6 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 		// Build the prompt: stable content first, dynamic content last.
 		let fullPrompt = `${skillContent}\n\n---\n\nPlease perform a code review with the following focus:\n\n${focusPrompt}`;
 
-		if (reviewCustomInstructions) {
-			fullPrompt += `\n\nShared custom review instructions (applies to all reviews):\n\n${reviewCustomInstructions}`;
-		}
-
 		fullPrompt = appendExtraReviewInstruction(fullPrompt, options?.extraInstruction);
 
 		if (projectGuidelines) {
@@ -1063,16 +619,9 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 		return true;
 	}
 
-	/**
-	 * Handle PR checkout and return a ReviewTarget (or null on failure)
-	 */
-	async function handlePrCheckout(ctx: ExtensionContext, ref: string): Promise<ReviewTarget | null> {
-		return await resolvePullRequestTarget(ctx, ref);
-	}
-
 	// Register the /review-start command
 	pi.registerCommand("review-start", {
-		description: "Review code changes (PR, uncommitted, branch, commit, or folder)",
+		description: "Review code changes (uncommitted or against a base branch)",
 		handler: async (args, ctx) => {
 			if (!ctx.hasUI) {
 				ctx.ui.notify("Review requires interactive mode", "error");
@@ -1104,67 +653,49 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 			extraInstruction = parsed.extraInstruction?.trim() || undefined;
 
 			if (parsed.target) {
-				if (parsed.target.type === "pr") {
-					// Handle PR checkout (async operation)
-					target = await handlePrCheckout(ctx, parsed.target.ref);
-					if (!target) {
-						ctx.ui.notify("PR review failed. Returning to review menu.", "warning");
-					}
-				} else {
-					target = parsed.target;
-				}
+				target = parsed.target;
 			}
 
 			// If no args or invalid args, show selector
 			if (!target) {
 				fromSelector = true;
+				target = await showReviewSelector(ctx);
 			}
 
-			while (true) {
-				if (!target && fromSelector) {
-					target = await showReviewSelector(ctx);
-				}
+			if (!target) {
+				ctx.ui.notify("Review cancelled", "info");
+				return;
+			}
 
-				if (!target) {
+			// Determine if we should use fresh session mode
+			const entries = ctx.sessionManager.getEntries();
+			const messageCount = entries.filter((e) => e.type === "message").length;
+
+			// In an empty session, default to fresh review mode so /review-end works consistently.
+			let useFreshSession = messageCount === 0;
+
+			if (messageCount > 0) {
+				// Existing session - ask user which mode they want
+				const choice = await ctx.ui.select("Start review in:", ["New session", "Current session"]);
+
+				if (choice === undefined) {
 					ctx.ui.notify("Review cancelled", "info");
 					return;
 				}
 
-				// Determine if we should use fresh session mode
-				const entries = ctx.sessionManager.getEntries();
-				const messageCount = entries.filter((e) => e.type === "message").length;
-
-				// In an empty session, default to fresh review mode so /review-end works consistently.
-				let useFreshSession = messageCount === 0;
-
-				if (messageCount > 0) {
-					// Existing session - ask user which mode they want
-					const choice = await ctx.ui.select("Start review in:", ["New session", "Current session"]);
-
-					if (choice === undefined) {
-						if (fromSelector) {
-							target = null;
-							continue;
-						}
-						ctx.ui.notify("Review cancelled", "info");
-						return;
-					}
-
-					useFreshSession = choice === "New session";
-				}
-
-				if (fromSelector && !extraInstruction) {
-					const promptResult = await promptForOptionalReviewInstruction(ctx);
-					if (promptResult.cancelled) {
-						ctx.ui.notify("Review cancelled", "info");
-						return;
-					}
-					extraInstruction = promptResult.instruction;
-				}
-
-				await executeReview(ctx, target, useFreshSession, { extraInstruction });
-				return;
+				useFreshSession = choice === "New session";
 			}
+
+			if (fromSelector && !extraInstruction) {
+				const promptResult = await promptForOptionalReviewInstruction(ctx);
+				if (promptResult.cancelled) {
+					ctx.ui.notify("Review cancelled", "info");
+					return;
+				}
+				extraInstruction = promptResult.instruction;
+			}
+
+			await executeReview(ctx, target, useFreshSession, { extraInstruction });
 		},
 	});
 
