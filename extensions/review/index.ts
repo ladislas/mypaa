@@ -45,6 +45,7 @@ import {
 } from "@mariozechner/pi-tui";
 import path from "node:path";
 import { promises as fs } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { loadPackageSkill } from "../../lib/skill-loader.ts";
 import {
 	type ReviewTarget,
@@ -63,6 +64,27 @@ import {
 	buildReviewSessionName,
 	buildReviewFixFindingsPrompt,
 } from "./helpers.ts";
+
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const reviewSummaryPromptPath = path.join(currentDir, "REVIEW_SUMMARY_PROMPT.md");
+const reviewFixFindingsPromptPath = path.join(currentDir, "REVIEW_FIX_FINDINGS_PROMPT.md");
+
+let reviewSummaryPrompt: string | undefined;
+let reviewFixFindingsPrompt: string | undefined;
+
+function stripPromptMarkdownTitle(prompt: string): string {
+	return prompt.replace(/^# .+\n+/, "").trim();
+}
+
+async function loadReviewSummaryPrompt(): Promise<string> {
+	reviewSummaryPrompt ??= stripPromptMarkdownTitle(await fs.readFile(reviewSummaryPromptPath, "utf8"));
+	return reviewSummaryPrompt;
+}
+
+async function loadReviewFixFindingsPrompt(): Promise<string> {
+	reviewFixFindingsPrompt ??= stripPromptMarkdownTitle(await fs.readFile(reviewFixFindingsPromptPath, "utf8"));
+	return reviewFixFindingsPrompt;
+}
 
 // State to track fresh-session review origin (where we started from).
 // Module-level state means only one review can be active at a time.
@@ -1159,50 +1181,6 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 		},
 	});
 
-	// Custom prompt for review summaries - focuses on preserving actionable findings
-	const REVIEW_SUMMARY_PROMPT = `We are leaving a code-review session and returning to the main coding session.
-Create a structured handoff that can be used immediately to implement fixes.
-
-You MUST summarize the review that happened in this session so findings can be acted on.
-Do not omit findings: include every actionable issue that was identified.
-
-Required sections (in order):
-
-## Review Scope
-- What was reviewed (files/paths, changes, and scope)
-
-## Verdict
-- "correct" or "needs attention"
-
-## Findings
-For EACH finding, include:
-- Priority tag ([P0]..[P3]) and short title
-- File location (\`path/to/file.ext:line\`)
-- Why it matters (brief)
-- What should change (brief, actionable)
-
-## Fix Queue
-1. Ordered implementation checklist (highest priority first)
-
-## Constraints & Preferences
-- Any constraints or preferences mentioned during review
-- Or "(none)"
-
-## Human Reviewer Callouts (Non-Blocking)
-Include only applicable callouts (no yes/no lines):
-- **This change adds a database migration:** <files/details>
-- **This change introduces a new dependency:** <package(s)/details>
-- **This change changes a dependency (or the lockfile):** <files/package(s)/details>
-- **This change modifies auth/permission behavior:** <what changed and where>
-- **This change introduces backwards-incompatible public schema/API/contract changes:** <what changed and where>
-- **This change includes irreversible or destructive operations:** <operation and scope>
-
-If none apply, write "- (none)".
-
-These are informational callouts for humans and are not fix items by themselves.
-
-Preserve exact file paths, function names, and error messages where available.`;
-
 	type EndReviewAction = "returnOnly" | "returnAndFix" | "returnAndSummarize";
 	type EndReviewActionResult = "ok" | "cancelled" | "error";
 	type EndReviewActionOptions = {
@@ -1243,7 +1221,8 @@ Preserve exact file paths, function names, and error messages where available.`;
 		showLoader: boolean,
 		extraInstruction?: string,
 	): Promise<{ cancelled: boolean; error?: string } | null> {
-		const summaryPrompt = appendExtraReviewInstruction(REVIEW_SUMMARY_PROMPT, extraInstruction);
+		const basePrompt = await loadReviewSummaryPrompt();
+		const summaryPrompt = appendExtraReviewInstruction(basePrompt, extraInstruction);
 
 		if (showLoader && ctx.hasUI) {
 			return ctx.ui.custom<{ cancelled: boolean; error?: string } | null>((tui, theme, _kb, done) => {
@@ -1341,8 +1320,9 @@ Preserve exact file paths, function names, and error messages where available.`;
 			return "ok";
 		}
 
+		const fixFindingsTemplate = await loadReviewFixFindingsPrompt();
 		const fixPrompt = appendExtraReviewInstruction(
-			buildReviewFixFindingsPrompt(reviewTargetType),
+			buildReviewFixFindingsPrompt(fixFindingsTemplate, reviewTargetType),
 			options.extraInstruction,
 		);
 		pi.sendUserMessage(fixPrompt, { deliverAs: "followUp" });

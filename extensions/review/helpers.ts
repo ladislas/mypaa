@@ -67,7 +67,18 @@ function getReviewModeLabel(targetType?: ReviewTarget["type"]): string {
 	}
 }
 
-export function buildReviewFixFindingsPrompt(targetType?: ReviewTarget["type"]): string {
+function renderPromptTemplate(template: string, values: Record<string, string>): string {
+	let prompt = template;
+	for (const [key, value] of Object.entries(values)) {
+		prompt = prompt.replaceAll(`{{${key}}}`, () => value);
+	}
+	return prompt.trim();
+}
+
+export function buildReviewFixFindingsPrompt(
+	template: string,
+	targetType?: ReviewTarget["type"],
+): string {
 	const workflow = getReviewFixWorkflow(targetType);
 	const reviewModeLabel = getReviewModeLabel(targetType);
 	const commitDisciplineIntro =
@@ -87,36 +98,16 @@ For each file being fixed:
 2. Apply the fix. The unstaged diff now shows exactly what changed.
 Do NOT commit. Leave the files staged/unstaged for the user to handle.`;
 
-	return `Use the latest review summary in this session and implement the review findings now.
-
-## Commit discipline
-
-${commitDisciplineIntro}
-Do not inspect repository history to switch workflows mid-run.
-
-${workflowInstructions}
-
-## Fix instructions
-
-1. Treat the summary's Findings/Fix Queue as a checklist.
-2. Fix in priority order: P0, P1, then P2 (include P3 if quick and safe).
-3. If a finding is invalid/already fixed/not possible right now, briefly explain why and continue.
-4. Treat "Human Reviewer Callouts (Non-Blocking)" as informational only; do not convert them into fix tasks unless there is a separate explicit finding.
-5. Follow fail-fast error handling: do not add local catch/fallback recovery unless this scope is an explicit boundary that can safely translate the failure.
-6. If you add or keep a \`try/catch\`, explain the expected failure mode and either rethrow with context or return a boundary-safe error response.
-7. JSON parsing/decoding should fail loudly by default; avoid silent fallback parsing.
-8. Run relevant tests/checks for touched code where practical.
-
-## After all fixes
-
-1. List every ${workflow === "fixup" ? "fixup commit created" : "file prepared"}: what was fixed${workflow === "fixup" ? ", and which original commit it targets" : ""}.
-2. List fixed items, deferred/skipped items (with reasons), and verification results.
-3. Ask the user for next steps:
-   - Continue with more fixes
-   - ${workflow === "fixup"
-			? "Run \`git rebase --autosquash\` to fold all fixups in (requires explicit user approval before executing)"
-			: "Review or commit the staged/unstaged changes manually"}
-   - Stop and leave ${workflow === "fixup" ? "fixup commits" : "the prepared changes"} as-is`;
+	return renderPromptTemplate(template, {
+		commitDisciplineIntro,
+		workflowInstructions,
+		preparedItemLabel: workflow === "fixup" ? "fixup commit created" : "file prepared",
+		preparedItemTargetDetail: workflow === "fixup" ? ", and which original commit it targets" : "",
+		nextStepInstruction: workflow === "fixup"
+			? "Run `git rebase --autosquash` to fold all fixups in (requires explicit user approval before executing)"
+			: "Review or commit the staged/unstaged changes manually",
+		preparedChangesLabel: workflow === "fixup" ? "fixup commits" : "the prepared changes",
+	});
 }
 
 // ─── Argument parsing ─────────────────────────────────────────────────────────
