@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import reviewExtension from "./index.ts";
+import { ReviewPromptLoadError } from "./prompts.ts";
 
 const fakeTheme = {
 	fg: (_color, text) => text,
@@ -261,4 +262,77 @@ test("/review-end prompts for an optional one-off instruction before fixing find
 	assert.equal(sentMessages.length, 1);
 	assert.equal(sentMessages[0].options?.deliverAs, "followUp");
 	assert.match(sentMessages[0].message, /Additional user-provided review instruction:\n\nonly fix P1 findings/);
+});
+
+test("/review-end reports Markdown prompt load failures as review extension errors", async () => {
+	const commands = new Map();
+	const appendedEntries = [];
+	const notifications = [];
+	const sentMessages = [];
+
+	const pi = {
+		registerCommand(name, definition) {
+			commands.set(name, definition.handler);
+		},
+		on() {},
+		appendEntry(customType, data) {
+			appendedEntries.push({ customType, data });
+		},
+		sendUserMessage(message, options) {
+			sentMessages.push({ message, options });
+		},
+	};
+
+	reviewExtension(pi, {
+		loadReviewSummaryPrompt: async () => {
+			throw new ReviewPromptLoadError(
+				"review summary",
+				"/missing/REVIEW_SUMMARY_PROMPT.md",
+				new Error("ENOENT: no such file or directory"),
+			);
+		},
+	});
+
+	const handler = commands.get("review-end");
+	assert.equal(typeof handler, "function");
+
+	const ctx = {
+		hasUI: true,
+		sessionManager: {
+			getEntries: () => [],
+			getBranch: () => [
+				{
+					type: "custom",
+					customType: "review-session",
+					data: { active: true, originId: "origin-1", targetType: "uncommitted" },
+				},
+			],
+			getLeafId: () => "leaf-1",
+		},
+		navigateTree: async () => {
+			throw new Error("navigateTree should not be called when prompt loading fails");
+		},
+		ui: {
+			notify(message, level) {
+				notifications.push({ message, level });
+			},
+			setWidget() {},
+			getEditorText: () => "",
+			setEditorText() {},
+			select: async (label) => {
+				assert.equal(label, "Finish review:");
+				return "Summarize + return";
+			},
+			custom: async () => ({ cancelled: false }),
+		},
+	};
+
+	await handler("", ctx);
+
+	assert.deepEqual(appendedEntries, []);
+	assert.deepEqual(sentMessages, []);
+	assert.equal(notifications.length, 1);
+	assert.equal(notifications[0].level, "error");
+	assert.match(notifications[0].message, /Review extension failed to load review summary Markdown prompt/);
+	assert.match(notifications[0].message, /REVIEW_SUMMARY_PROMPT\.md/);
 });

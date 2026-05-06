@@ -45,8 +45,12 @@ import {
 } from "@mariozechner/pi-tui";
 import path from "node:path";
 import { promises as fs } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { loadPackageSkill } from "../../lib/skill-loader.ts";
+import {
+	formatReviewPromptError,
+	loadReviewFixFindingsPrompt as defaultLoadReviewFixFindingsPrompt,
+	loadReviewSummaryPrompt as defaultLoadReviewSummaryPrompt,
+} from "./prompts.ts";
 import {
 	type ReviewTarget,
 	UNCOMMITTED_PROMPT,
@@ -65,27 +69,6 @@ import {
 	buildReviewFixFindingsPrompt,
 } from "./helpers.ts";
 
-const currentDir = path.dirname(fileURLToPath(import.meta.url));
-const reviewSummaryPromptPath = path.join(currentDir, "REVIEW_SUMMARY_PROMPT.md");
-const reviewFixFindingsPromptPath = path.join(currentDir, "REVIEW_FIX_FINDINGS_PROMPT.md");
-
-let reviewSummaryPrompt: string | undefined;
-let reviewFixFindingsPrompt: string | undefined;
-
-function stripPromptMarkdownTitle(prompt: string): string {
-	return prompt.replace(/^# .+\n+/, "").trim();
-}
-
-async function loadReviewSummaryPrompt(): Promise<string> {
-	reviewSummaryPrompt ??= stripPromptMarkdownTitle(await fs.readFile(reviewSummaryPromptPath, "utf8"));
-	return reviewSummaryPrompt;
-}
-
-async function loadReviewFixFindingsPrompt(): Promise<string> {
-	reviewFixFindingsPrompt ??= stripPromptMarkdownTitle(await fs.readFile(reviewFixFindingsPromptPath, "utf8"));
-	return reviewFixFindingsPrompt;
-}
-
 // State to track fresh-session review origin (where we started from).
 // Module-level state means only one review can be active at a time.
 // This is intentional - the UI and /review-end command assume a single active review.
@@ -101,6 +84,8 @@ const PR_CHECKOUT_BLOCKED_BY_PENDING_CHANGES_MESSAGE =
 
 type ReviewExtensionDeps = {
 	loadPackageSkill?: typeof loadPackageSkill;
+	loadReviewSummaryPrompt?: typeof defaultLoadReviewSummaryPrompt;
+	loadReviewFixFindingsPrompt?: typeof defaultLoadReviewFixFindingsPrompt;
 };
 
 type ReviewSessionState = {
@@ -420,6 +405,8 @@ type ReviewPresetValue =
 
 export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionDeps = {}) {
 	const loadSkill = deps.loadPackageSkill ?? loadPackageSkill;
+	const loadReviewSummaryPrompt = deps.loadReviewSummaryPrompt ?? defaultLoadReviewSummaryPrompt;
+	const loadReviewFixFindingsPrompt = deps.loadReviewFixFindingsPrompt ?? defaultLoadReviewFixFindingsPrompt;
 
 	function persistReviewSettings() {
 		pi.appendEntry(REVIEW_SETTINGS_TYPE, {
@@ -1287,12 +1274,18 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 			return "ok";
 		}
 
-		const summaryResult = await navigateWithSummary(
-			ctx,
-			originId,
-			options.showSummaryLoader ?? false,
-			options.extraInstruction,
-		);
+		let summaryResult: { cancelled: boolean; error?: string } | null;
+		try {
+			summaryResult = await navigateWithSummary(
+				ctx,
+				originId,
+				options.showSummaryLoader ?? false,
+				options.extraInstruction,
+			);
+		} catch (error) {
+			ctx.ui.notify(formatReviewPromptError(error), "error");
+			return "error";
+		}
 		if (summaryResult === null) {
 			ctx.ui.notify("Summarization cancelled. Use /review-end to try again.", "info");
 			return "cancelled";
@@ -1320,11 +1313,17 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 			return "ok";
 		}
 
-		const fixFindingsTemplate = await loadReviewFixFindingsPrompt();
-		const fixPrompt = appendExtraReviewInstruction(
-			buildReviewFixFindingsPrompt(fixFindingsTemplate, reviewTargetType),
-			options.extraInstruction,
-		);
+		let fixPrompt: string;
+		try {
+			const fixFindingsTemplate = await loadReviewFixFindingsPrompt();
+			fixPrompt = appendExtraReviewInstruction(
+				buildReviewFixFindingsPrompt(fixFindingsTemplate, reviewTargetType),
+				options.extraInstruction,
+			);
+		} catch (error) {
+			ctx.ui.notify(formatReviewPromptError(error), "error");
+			return "error";
+		}
 		pi.sendUserMessage(fixPrompt, { deliverAs: "followUp" });
 		if (notifySuccess) {
 			ctx.ui.notify("Review complete! Returned and queued a follow-up to fix findings.", "info");

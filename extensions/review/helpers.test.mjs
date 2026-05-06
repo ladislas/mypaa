@@ -12,6 +12,12 @@ const reviewFixFindingsTemplate = readFileSync(
 	"utf8",
 ).replace(/^# .+\n+/, "").trim();
 
+function getPromptPlaceholders(template) {
+	return [...template.matchAll(/{{\s*([^{}\s]+)\s*}}/g)]
+		.map((match) => match[1])
+		.sort();
+}
+
 // ─── parseArgs ────────────────────────────────────────────────────────────────
 
 test("parseArgs: empty → null target", () => {
@@ -102,4 +108,29 @@ test("buildReviewFixFindingsPrompt: unknown review mode defaults to staging work
 	assert.match(prompt, /original review mode is unavailable/i);
 	assert.match(prompt, /\*\*Staging workflow:\*\*/);
 	assert.doesNotMatch(prompt, /\*\*Fixup workflow:\*\*/);
+});
+
+test("buildReviewFixFindingsPrompt: expected template placeholders stay covered", () => {
+	assert.deepEqual(getPromptPlaceholders(reviewFixFindingsTemplate), [
+		"commitDisciplineIntro",
+		"nextStepInstruction",
+		"preparedChangesLabel",
+		"preparedItemLabel",
+		"preparedItemTargetDetail",
+		"workflowInstructions",
+	]);
+});
+
+test("buildReviewFixFindingsPrompt: supported workflows render without unresolved placeholders", () => {
+	for (const targetType of [undefined, "uncommitted", "baseBranch", "commit", "pullRequest", "folder"]) {
+		const prompt = buildReviewFixFindingsPrompt(reviewFixFindingsTemplate, targetType);
+		assert.doesNotMatch(prompt, /{{\s*[^{}\s]+\s*}}/, `target type: ${targetType ?? "unknown"}`);
+	}
+});
+
+test("buildReviewFixFindingsPrompt: unresolved template placeholders fail loudly", () => {
+	assert.throws(
+		() => buildReviewFixFindingsPrompt(`${reviewFixFindingsTemplate}\n\n{{newPlaceholder}}`, "uncommitted"),
+		/Unresolved prompt template placeholder\(s\): {{newPlaceholder}}/,
+	);
 });
