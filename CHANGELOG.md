@@ -14,6 +14,7 @@ Versioned sections should match the Git tags and GitHub releases published for t
 - Added a `/pac-slidedeck` extension command and `save_slidedeck` tool that generate presentation-style HTML decks under `~/.pi/agent/slidedecks/` instead of the repo workspace. ([#131](https://github.com/ladislas/mypac/issues/131))
 - Added `pac-grill-with-docs`, its thin `/pac-grill-with-docs` prompt, and an initial repo-root `CONTEXT.md` to support GitHub-first grilling, issue-backed ADR comments, and sparing local context updates. ([#157](https://github.com/ladislas/mypac/issues/157))
 - Added `pac-improve-architecture`, its thin `/pac-improve-architecture` prompt, and adapted deepening guidance files for issue-aware architecture review without GitHub write-back or automatic `CONTEXT.md` edits. ([#177](https://github.com/ladislas/mypac/issues/177))
+- Added `pac-diagnose`, its thin `/pac-diagnose` prompt, and a HITL reproduction-loop template for disciplined bug and performance-regression diagnosis. ([#194](https://github.com/ladislas/mypac/issues/194))
 
 ### Changed
 

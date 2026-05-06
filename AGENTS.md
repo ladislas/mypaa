@@ -70,6 +70,8 @@ For deeper guidance on creating or updating prompt templates in `prompts/`, load
 
 For deeper guidance on creating, renaming, or refactoring repo-local skills in `skills/`, load `skills/pac-pi-skill/SKILL.md`.
 
+For disciplined bug diagnosis or performance-regression investigation, load `skills/pac-diagnose/SKILL.md`.
+
 ## OpenSpec
 
 - Use OpenSpec in this repo for meaningful multi-step work, not for tiny obvious edits.
