@@ -17,6 +17,8 @@ export type ParsedReviewArgs = {
 
 export type ReviewFixWorkflow = "fixup" | "staged";
 
+const UNRESOLVED_PROMPT_PLACEHOLDER_PATTERN = /{{\s*[^{}\s]+\s*}}/g;
+
 // ─── Prompt templates ─────────────────────────────────────────────────────────
 
 export const UNCOMMITTED_PROMPT =
@@ -72,6 +74,12 @@ function renderPromptTemplate(template: string, values: Record<string, string>):
 	for (const [key, value] of Object.entries(values)) {
 		prompt = prompt.replaceAll(`{{${key}}}`, () => value);
 	}
+
+	const unresolvedPlaceholders = prompt.match(UNRESOLVED_PROMPT_PLACEHOLDER_PATTERN);
+	if (unresolvedPlaceholders) {
+		throw new Error(`Unresolved prompt template placeholder(s): ${[...new Set(unresolvedPlaceholders)].join(", ")}`);
+	}
+
 	return prompt.trim();
 }
 
