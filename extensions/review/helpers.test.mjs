@@ -1,10 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
 	buildReviewFixFindingsPrompt,
 	buildReviewSessionName,
 	parseArgs,
 } from "./helpers.ts";
+
+const reviewFixFindingsTemplate = readFileSync(
+	new URL("./REVIEW_FIX_FINDINGS_PROMPT.md", import.meta.url),
+	"utf8",
+).replace(/^# .+\n+/, "").trim();
 
 // ─── parseArgs ────────────────────────────────────────────────────────────────
 
@@ -74,7 +80,7 @@ test("buildReviewSessionName: uncommitted target uses literal label", () => {
 });
 
 test("buildReviewFixFindingsPrompt: uncommitted reviews use staging workflow", () => {
-	const prompt = buildReviewFixFindingsPrompt("uncommitted");
+	const prompt = buildReviewFixFindingsPrompt(reviewFixFindingsTemplate, "uncommitted");
 	assert.match(prompt, /started in uncommitted changes mode/i);
 	assert.match(prompt, /\*\*Staging workflow:\*\*/);
 	assert.doesNotMatch(prompt, /git log --oneline/);
@@ -83,7 +89,7 @@ test("buildReviewFixFindingsPrompt: uncommitted reviews use staging workflow", (
 });
 
 test("buildReviewFixFindingsPrompt: base-branch reviews use fixup workflow", () => {
-	const prompt = buildReviewFixFindingsPrompt("baseBranch");
+	const prompt = buildReviewFixFindingsPrompt(reviewFixFindingsTemplate, "baseBranch");
 	assert.match(prompt, /started in base branch mode/i);
 	assert.match(prompt, /\*\*Fixup workflow:\*\*/);
 	assert.match(prompt, /git commit --fixup <sha>/);
@@ -92,7 +98,7 @@ test("buildReviewFixFindingsPrompt: base-branch reviews use fixup workflow", () 
 });
 
 test("buildReviewFixFindingsPrompt: unknown review mode defaults to staging workflow", () => {
-	const prompt = buildReviewFixFindingsPrompt();
+	const prompt = buildReviewFixFindingsPrompt(reviewFixFindingsTemplate);
 	assert.match(prompt, /original review mode is unavailable/i);
 	assert.match(prompt, /\*\*Staging workflow:\*\*/);
 	assert.doesNotMatch(prompt, /\*\*Fixup workflow:\*\*/);

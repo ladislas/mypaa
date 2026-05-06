@@ -67,13 +67,23 @@ import {
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const reviewSummaryPromptPath = path.join(currentDir, "REVIEW_SUMMARY_PROMPT.md");
+const reviewFixFindingsPromptPath = path.join(currentDir, "REVIEW_FIX_FINDINGS_PROMPT.md");
 
 let reviewSummaryPrompt: string | undefined;
+let reviewFixFindingsPrompt: string | undefined;
+
+function stripPromptMarkdownTitle(prompt: string): string {
+	return prompt.replace(/^# .+\n+/, "").trim();
+}
 
 async function loadReviewSummaryPrompt(): Promise<string> {
-	const rawPrompt = reviewSummaryPrompt ?? (await fs.readFile(reviewSummaryPromptPath, "utf8")).trim();
-	reviewSummaryPrompt = rawPrompt.replace(/^# .+\n+/, "").trim();
+	reviewSummaryPrompt ??= stripPromptMarkdownTitle(await fs.readFile(reviewSummaryPromptPath, "utf8"));
 	return reviewSummaryPrompt;
+}
+
+async function loadReviewFixFindingsPrompt(): Promise<string> {
+	reviewFixFindingsPrompt ??= stripPromptMarkdownTitle(await fs.readFile(reviewFixFindingsPromptPath, "utf8"));
+	return reviewFixFindingsPrompt;
 }
 
 // State to track fresh-session review origin (where we started from).
@@ -1310,8 +1320,9 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 			return "ok";
 		}
 
+		const fixFindingsTemplate = await loadReviewFixFindingsPrompt();
 		const fixPrompt = appendExtraReviewInstruction(
-			buildReviewFixFindingsPrompt(reviewTargetType),
+			buildReviewFixFindingsPrompt(fixFindingsTemplate, reviewTargetType),
 			options.extraInstruction,
 		);
 		pi.sendUserMessage(fixPrompt, { deliverAs: "followUp" });
