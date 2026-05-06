@@ -72,6 +72,7 @@ For readability, the skill table below drops the `pac-` prefix in the display la
 | --- | --- |
 | [`/pac-hello-world`](prompts/pac-hello-world.md) | Quick validation prompt to confirm the package is loaded |
 | [`/pac-lwot`](prompts/pac-lwot.md) | "Let's work on that" — turn a note, issue, PR, todo, or URL into a concrete plan and next steps |
+| [`/pac-zoom-out`](prompts/pac-zoom-out.md) | Zoom out from a code area and map relevant modules, callers, and system fit |
 | [`/pac-ldit`](prompts/pac-ldit.md) | "Let's do it" — confirm and proceed with already-planned work |
 | [`/pac-diagnose`](prompts/pac-diagnose.md) | Diagnose a bug or performance regression with a disciplined feedback-loop workflow |
 | [`/pac-grill-with-docs`](prompts/pac-grill-with-docs.md) | Grill issue-backed work and persist durable outcomes to GitHub issue notes and sparing local context |
