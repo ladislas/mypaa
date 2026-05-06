@@ -64,6 +64,7 @@ For readability, the skill table below drops the `pac-` prefix in the display la
 | [`pi-prompt`](skills/pac-pi-prompt/SKILL.md) | Author or update prompt templates under `prompts/` |
 | [`pi-skill`](skills/pac-pi-skill/SKILL.md) | Create, rename, or refactor repo-local skills under `skills/` |
 | [`review`](skills/pac-review/SKILL.md) | Review code changes using the repo's review rubric |
+| [`triage`](skills/pac-triage/SKILL.md) | Triage GitHub issues through mypac's label-based issue workflow |
 | [`uv`](skills/pac-uv/SKILL.md) | Prefer `uv` over `pip`, `python`, and `venv` workflows |
 
 ### Prompts
@@ -76,6 +77,7 @@ For readability, the skill table below drops the `pac-` prefix in the display la
 | [`/pac-ldit`](prompts/pac-ldit.md) | "Let's do it" — confirm and proceed with already-planned work |
 | [`/pac-diagnose`](prompts/pac-diagnose.md) | Diagnose a bug or performance regression with a disciplined feedback-loop workflow |
 | [`/pac-grill-with-docs`](prompts/pac-grill-with-docs.md) | Grill issue-backed work and persist durable outcomes to GitHub issue notes and sparing local context |
+| [`/pac-triage`](prompts/pac-triage.md) | Triage GitHub issues through mypac's label-based issue workflow |
 | [`/pac-improve-architecture`](prompts/pac-improve-architecture.md) | Review a codebase for deepening opportunities, then grill a chosen architecture candidate |
 | [`/pac-propose`](prompts/pac-propose.md) | Create a new OpenSpec change proposal in one step |
 | [`/pac-apply`](prompts/pac-apply.md) | Implement tasks from an OpenSpec change |

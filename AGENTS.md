@@ -72,6 +72,8 @@ For deeper guidance on creating, renaming, or refactoring repo-local skills in `
 
 For disciplined bug diagnosis or performance-regression investigation, load `skills/pac-diagnose/SKILL.md`.
 
+For GitHub issue triage, label-state recommendations, ready-for-agent briefs, needs-info comments, or wontfix decisions, load `skills/pac-triage/SKILL.md`.
+
 ## OpenSpec
 
 - Use OpenSpec in this repo for meaningful multi-step work, not for tiny obvious edits.

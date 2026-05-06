@@ -136,7 +136,7 @@ Then:
 
 - create a new GitHub issue whose title is a concise version of the PRD title and whose **body is the PRD itself**
 - do **not** create a duplicate PRD comment
-- add `needs triage` and `prd` only when those labels already exist in the target repository
+- add `ready-for-agent` and `prd` only when those labels already exist in the target repository
 - never create missing labels automatically
 
 ## GitHub safety rules
