@@ -4,13 +4,10 @@ import { buildWorkflowSessionName } from "../session-names/helpers.ts";
 
 export type ReviewTarget =
 	| { type: "uncommitted" }
-	| { type: "baseBranch"; branch: string }
-	| { type: "commit"; sha: string; title?: string }
-	| { type: "pullRequest"; prNumber: number; baseBranch: string; title: string }
-	| { type: "folder"; paths: string[] };
+	| { type: "baseBranch"; branch: string };
 
 export type ParsedReviewArgs = {
-	target: ReviewTarget | { type: "pr"; ref: string } | null;
+	target: ReviewTarget | null;
 	extraInstruction?: string;
 	error?: string;
 };
@@ -30,22 +27,8 @@ export const BASE_BRANCH_PROMPT_WITH_MERGE_BASE =
 export const BASE_BRANCH_PROMPT_FALLBACK =
 	"Review the code changes against the base branch '{branch}'. Start by finding the merge diff between the current branch and {branch}'s upstream e.g. (`git merge-base HEAD \"$(git rev-parse --abbrev-ref \"{branch}@{upstream}\")\"`), then run `git diff` against that SHA to see what changes we would merge into the {branch} branch. Provide prioritized, actionable findings.";
 
-export const COMMIT_PROMPT_WITH_TITLE =
-	'Review the code changes introduced by commit {sha} ("{title}"). Provide prioritized, actionable findings.';
-
-export const COMMIT_PROMPT = "Review the code changes introduced by commit {sha}. Provide prioritized, actionable findings.";
-
-export const PULL_REQUEST_PROMPT =
-	'Review pull request #{prNumber} ("{title}") against the base branch \'{baseBranch}\'. The merge base commit for this comparison is {mergeBaseSha}. Run `git diff {mergeBaseSha}` to inspect the changes that would be merged. Provide prioritized, actionable findings.';
-
-export const PULL_REQUEST_PROMPT_FALLBACK =
-	'Review pull request #{prNumber} ("{title}") against the base branch \'{baseBranch}\'. Start by finding the merge base between the current branch and {baseBranch} (e.g., `git merge-base HEAD {baseBranch}`), then run `git diff` against that SHA to see the changes that would be merged. Provide prioritized, actionable findings.';
-
-export const FOLDER_REVIEW_PROMPT =
-	"Review the code in the following paths: {paths}. This is a snapshot review (not a diff). Read the files directly in these paths and provide prioritized, actionable findings.";
-
 export function getReviewFixWorkflow(targetType?: ReviewTarget["type"]): ReviewFixWorkflow {
-	if (targetType === "uncommitted" || targetType === "folder" || targetType === undefined) {
+	if (targetType === "uncommitted" || targetType === undefined) {
 		return "staged";
 	}
 
@@ -58,12 +41,6 @@ function getReviewModeLabel(targetType?: ReviewTarget["type"]): string {
 			return "uncommitted changes";
 		case "baseBranch":
 			return "base branch";
-		case "commit":
-			return "commit";
-		case "pullRequest":
-			return "pull request";
-		case "folder":
-			return "folder snapshot";
 		default:
 			return "unknown";
 	}
@@ -119,31 +96,6 @@ Do NOT commit. Leave the files staged/unstaged for the user to handle.`;
 }
 
 // ─── Argument parsing ─────────────────────────────────────────────────────────
-
-export function parseReviewPaths(value: string): string[] {
-	return value
-		.split(/\s+/)
-		.map((item) => item.trim())
-		.filter((item) => item.length > 0);
-}
-
-export function parsePrReference(ref: string): number | null {
-	const trimmed = ref.trim();
-
-	const num = parseInt(trimmed, 10);
-	if (!isNaN(num) && num > 0) {
-		return num;
-	}
-
-	// Formats: https://github.com/owner/repo/pull/123
-	//          github.com/owner/repo/pull/123
-	const urlMatch = trimmed.match(/github\.com\/[^/]+\/[^/]+\/pull\/(\d+)/);
-	if (urlMatch) {
-		return parseInt(urlMatch[1], 10);
-	}
-
-	return null;
-}
 
 export function tokenizeArgs(value: string): string[] {
 	const tokens: string[] = [];
@@ -238,26 +190,6 @@ export function parseArgs(args: string | undefined): ParsedReviewArgs {
 			return result({ type: "baseBranch", branch });
 		}
 
-		case "commit": {
-			const sha = parts[1];
-			if (!sha) return result(null);
-			const title = parts.slice(2).join(" ") || undefined;
-			const commitTarget: ReviewTarget = title !== undefined ? { type: "commit", sha, title } : { type: "commit", sha };
-			return result(commitTarget);
-		}
-
-		case "folder": {
-			const paths = parseReviewPaths(parts.slice(1).join(" "));
-			if (paths.length === 0) return result(null);
-			return result({ type: "folder", paths });
-		}
-
-		case "pr": {
-			const ref = parts[1];
-			if (!ref) return result(null);
-			return result({ type: "pr", ref });
-		}
-
 		default:
 			return result(null);
 	}
@@ -271,18 +203,6 @@ export function getUserFacingHint(target: ReviewTarget): string {
 			return "current changes";
 		case "baseBranch":
 			return `changes against '${target.branch}'`;
-		case "commit": {
-			const shortSha = target.sha.slice(0, 7);
-			return target.title ? `commit ${shortSha}: ${target.title}` : `commit ${shortSha}`;
-		}
-		case "pullRequest": {
-			const shortTitle = target.title.length > 30 ? target.title.slice(0, 27) + "..." : target.title;
-			return `PR #${target.prNumber}: ${shortTitle}`;
-		}
-		case "folder": {
-			const joined = target.paths.join(", ");
-			return joined.length > 40 ? `folders: ${joined.slice(0, 37)}...` : `folders: ${joined}`;
-		}
 	}
 }
 
@@ -292,14 +212,5 @@ export function buildReviewSessionName(target: ReviewTarget): string | undefined
 			return buildWorkflowSessionName("review", "uncommitted");
 		case "baseBranch":
 			return buildWorkflowSessionName("review", target.branch);
-		case "commit": {
-			const shortSha = target.sha.slice(0, 7);
-			const label = target.title ? `${shortSha}: ${target.title}` : shortSha;
-			return buildWorkflowSessionName("review", label);
-		}
-		case "pullRequest":
-			return buildWorkflowSessionName("review", `PR #${target.prNumber}: ${target.title}`);
-		case "folder":
-			return buildWorkflowSessionName("review", target.paths.join(", "));
 	}
 }

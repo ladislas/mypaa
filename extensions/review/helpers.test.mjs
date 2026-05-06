@@ -37,24 +37,6 @@ test("parseArgs: branch without name → null", () => {
 	assert.deepEqual(parseArgs("branch"), { target: null });
 });
 
-test("parseArgs: commit with sha", () => {
-	assert.deepEqual(parseArgs("commit abc1234"), { target: { type: "commit", sha: "abc1234" } });
-});
-
-test("parseArgs: commit with sha and title", () => {
-	assert.deepEqual(parseArgs("commit abc1234 Fix the bug"), {
-		target: { type: "commit", sha: "abc1234", title: "Fix the bug" },
-	});
-});
-
-test("parseArgs: folder", () => {
-	assert.deepEqual(parseArgs("folder src docs"), { target: { type: "folder", paths: ["src", "docs"] } });
-});
-
-test("parseArgs: pr with number", () => {
-	assert.deepEqual(parseArgs("pr 123"), { target: { type: "pr", ref: "123" } });
-});
-
 test("parseArgs: --extra flag", () => {
 	assert.deepEqual(parseArgs("uncommitted --extra 'focus on perf'"), {
 		target: { type: "uncommitted" },
@@ -70,20 +52,17 @@ test("parseArgs: unknown subcommand → null target", () => {
 	assert.deepEqual(parseArgs("invalid"), { target: null });
 });
 
+// ─── buildReviewSessionName ───────────────────────────────────────────────────
+
 test("buildReviewSessionName: branch target uses branch name", () => {
 	assert.equal(buildReviewSessionName({ type: "baseBranch", branch: "feature/foo" }), "review - feature/foo");
-});
-
-test("buildReviewSessionName: PR target includes number and title", () => {
-	assert.equal(
-		buildReviewSessionName({ type: "pullRequest", prNumber: 126, baseBranch: "main", title: "Set session display names" }),
-		"review - PR #126: Set session display names",
-	);
 });
 
 test("buildReviewSessionName: uncommitted target uses literal label", () => {
 	assert.equal(buildReviewSessionName({ type: "uncommitted" }), "review - uncommitted");
 });
+
+// ─── buildReviewFixFindingsPrompt ─────────────────────────────────────────────
 
 test("buildReviewFixFindingsPrompt: uncommitted reviews use staging workflow", () => {
 	const prompt = buildReviewFixFindingsPrompt(reviewFixFindingsTemplate, "uncommitted");
@@ -122,7 +101,7 @@ test("buildReviewFixFindingsPrompt: expected template placeholders stay covered"
 });
 
 test("buildReviewFixFindingsPrompt: supported workflows render without unresolved placeholders", () => {
-	for (const targetType of [undefined, "uncommitted", "baseBranch", "commit", "pullRequest", "folder"]) {
+	for (const targetType of [undefined, "uncommitted", "baseBranch"]) {
 		const prompt = buildReviewFixFindingsPrompt(reviewFixFindingsTemplate, targetType);
 		assert.doesNotMatch(prompt, /{{\s*[^{}\s]+\s*}}/, `target type: ${targetType ?? "unknown"}`);
 	}
