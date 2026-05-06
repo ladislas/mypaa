@@ -202,14 +202,6 @@ async function getLocalBranches(pi: ExtensionAPI): Promise<string[]> {
 }
 
 /**
- * Check if there are uncommitted changes (staged, unstaged, or untracked)
- */
-async function hasUncommittedChanges(pi: ExtensionAPI): Promise<boolean> {
-	const { stdout, code } = await pi.exec("git", ["status", "--porcelain"]);
-	return code === 0 && stdout.trim().length > 0;
-}
-
-/**
  * Get the current branch name
  */
 async function getCurrentBranch(pi: ExtensionAPI): Promise<string | null> {
@@ -261,8 +253,8 @@ async function buildReviewPrompt(
 
 // Review preset options for the selector
 const REVIEW_PRESETS = [
-	{ value: "uncommitted", label: "Review uncommitted changes", description: "" },
 	{ value: "baseBranch", label: "Review against a base branch", description: "(local)" },
+	{ value: "uncommitted", label: "Review uncommitted changes", description: "" },
 ] as const;
 
 type ReviewPresetValue = (typeof REVIEW_PRESETS)[number]["value"];
@@ -325,13 +317,8 @@ export default function reviewExtension(pi: ExtensionAPI, deps: ReviewExtensionD
 	/**
 	 * Determine the smart default review type based on git state
 	 */
-	async function getSmartDefault(): Promise<"uncommitted" | "baseBranch"> {
-		// Priority 1: If there are uncommitted changes, default to reviewing them
-		if (await hasUncommittedChanges(pi)) {
-			return "uncommitted";
-		}
-
-		// Priority 2: Default to PR-style review against base branch
+	async function getSmartDefault(): Promise<"baseBranch" | "uncommitted"> {
+		// Default to base branch review (most common workflow)
 		return "baseBranch";
 	}
 
