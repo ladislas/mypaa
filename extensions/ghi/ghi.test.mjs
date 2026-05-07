@@ -9,6 +9,7 @@ test("normalizeIssueNote trims surrounding whitespace", () => {
 test("buildIssueCreatePrompt keeps the issue note at the end", () => {
 	const prompt = buildIssueCreatePrompt("Skill instructions", "Need a better /ghi MVP");
 	assert.ok(prompt.startsWith("Skill instructions\n\n---\n\nCreate a GitHub issue"));
+	assert.match(prompt, /Infer and apply an existing pac workflow state label/);
 	assert.ok(prompt.endsWith("Issue note:\nNeed a better /ghi MVP"));
 });
 
