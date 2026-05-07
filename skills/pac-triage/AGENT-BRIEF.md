@@ -1,6 +1,6 @@
 # Writing Agent Briefs
 
-An agent brief is a structured GitHub issue comment posted when an issue moves to `ready-for-agent`. It is the authoritative implementation contract. The original issue body and discussion are context; the brief is what a future agent can work from.
+An agent brief is a structured GitHub issue comment posted when an issue moves to `pac:ready_for_agent`. It is the authoritative implementation contract. The original issue body and discussion are context; the brief is what a future agent can work from.
 
 Every brief comment must start with the triage disclaimer:
 
@@ -12,7 +12,7 @@ Every brief comment must start with the triage disclaimer:
 
 ### Durability over precision
 
-The issue may sit in `ready-for-agent` while the codebase changes. Write the brief so it stays useful after files move or internals are refactored.
+The issue may sit in `pac:ready_for_agent` while the codebase changes. Write the brief so it stays useful after files move or internals are refactored.
 
 - Describe behavioral contracts, interfaces, types, config shapes, and user-visible effects.
 - Name stable symbols when they are part of the public contract.

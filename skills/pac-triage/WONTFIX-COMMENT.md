@@ -1,6 +1,6 @@
 # Writing Wontfix Comments
 
-Use `wontfix` for valid or in-scope issues that will not be actioned. Use [OUT-OF-SCOPE-COMMENT.md](OUT-OF-SCOPE-COMMENT.md) instead when the request crosses a durable project boundary and should become reusable scope guidance.
+Use `pac:wontfix` for valid or in-scope issues that will not be actioned. Use [OUT-OF-SCOPE-COMMENT.md](OUT-OF-SCOPE-COMMENT.md) instead when the request crosses a durable project boundary and should become reusable scope guidance.
 
 Every wontfix comment must start with the triage disclaimer:
 

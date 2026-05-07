@@ -7,7 +7,7 @@ Use the optional argument after `/pac-triage` as the triage request. It may be:
 
 - a GitHub issue URL or number
 - a request such as `show what needs attention`
-- a quick state override such as `move #42 to ready-for-agent` or `close #43 as out of scope`
+- a quick state override such as `move #42 to pac:ready_for_agent` or `close #43 as pac:out_of_scope`
 - free text describing an issue to classify
 - nothing, in which case show issues needing attention
 

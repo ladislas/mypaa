@@ -17,9 +17,11 @@ Versioned sections should match the Git tags and GitHub releases published for t
 - Added `pac-diagnose`, its thin `/pac-diagnose` prompt, and a HITL reproduction-loop template for disciplined bug and performance-regression diagnosis. ([#194](https://github.com/ladislas/mypac/issues/194))
 - Added `/pac-zoom-out` as a lightweight prompt for mapping a code area without creating a full skill. ([#195](https://github.com/ladislas/mypac/issues/195))
 - Added `pac-triage`, its thin `/pac-triage` prompt, durable agent-brief guidance, GitHub-first wontfix handling, and `out of scope` scope-boundary comments. ([#196](https://github.com/ladislas/mypac/issues/196))
+- Added `/pac-setup-workflows` to check and explicitly apply canonical `pac:*` GitHub workflow labels, including legacy label migration planning. ([#199](https://github.com/ladislas/mypac/issues/199))
 
 ### Changed
 
+- Aligned label-dependent workflows on canonical `pac:*` labels and `/pac-setup-workflows` warnings instead of legacy label fallbacks. ([#199](https://github.com/ladislas/mypac/issues/199))
 - Added one-off optional custom instruction prompts to `/review-start` selector runs and `/review-end` summarize/fix flows, with Enter-to-skip and Esc-to-cancel behavior while keeping `--extra` and shared review instructions unchanged. ([#115](https://github.com/ladislas/mypac/issues/115))
 - Taught `/pac-lwot` to treat linked `## PRDs` and `## Decisions` issue artifacts as first-class planning context, prefer the latest linked PRD iteration, and report which artifacts informed its plan. ([#164](https://github.com/ladislas/mypac/issues/164))
 - Renamed `/review` to `/review-start` and `/end-review` to `/review-end` for a consistent review command pair. ([#108](https://github.com/ladislas/mypac/issues/108))
