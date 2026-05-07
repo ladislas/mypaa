@@ -1,6 +1,6 @@
 ---
 name: pac-triage
-description: "Triage GitHub issues through a label-based state machine. Use when reviewing incoming issues, classifying bugs or enhancements, preparing ready-for-agent briefs, or closing wontfix work."
+description: "Triage GitHub issues through a label-based state machine. Use when reviewing incoming issues, classifying bugs or enhancements, preparing ready-for-agent briefs, or closing wontfix/out-of-scope work."
 license: MIT
 compatibility: Git repository; gh CLI required
 metadata:
@@ -25,6 +25,7 @@ Every issue or comment posted to GitHub during triage **must** begin with this l
 ## Reference docs
 
 - [AGENT-BRIEF.md](AGENT-BRIEF.md) — durable `ready-for-agent` briefs
+- [OUT-OF-SCOPE-COMMENT.md](OUT-OF-SCOPE-COMMENT.md) — GitHub-native scope-boundary comments
 - [WONTFIX-COMMENT.md](WONTFIX-COMMENT.md) — structured `wontfix` comments
 
 ## Roles and labels
@@ -36,23 +37,32 @@ Two **category** roles:
 - `bug` — something is broken
 - `enhancement` — new feature or improvement
 
-Five **state** roles:
+Six **state** roles:
 
 - `needs-triage` — maintainer needs to evaluate
 - `needs-info` — waiting on reporter for more information
 - `ready-for-agent` — fully specified, ready for an AFK agent
 - `ready-for-human` — needs human implementation
-- `wontfix` — will not be actioned
+- `out of scope` — request crosses a durable project boundary
+- `wontfix` — valid or in-scope issue will not be actioned
 
 Every triaged issue should have exactly one category role and one state role. If state roles conflict, flag it and ask the maintainer which state is correct before doing anything else. Provide a recommendation.
 
 When applying a role:
 
 1. Query existing labels first.
-2. Prefer an exact label match for the canonical role, such as `ready-for-agent`.
+2. Prefer an exact label match for the canonical role, such as `ready-for-agent` or `out of scope`.
 3. For `needs-triage`, accept the legacy mypac label `needs triage` when `needs-triage` does not exist.
-4. If no matching label exists, say so plainly and skip that label. Do **not** create labels automatically.
-5. Remove other existing state labels when moving to a new state, but only after confirming the intended transition.
+4. If no matching label exists, say so plainly and skip that label. Do **not** create labels automatically during triage.
+5. For `out of scope`, show the maintainer this setup command when the label is missing:
+
+   ```bash
+   gh label create "out of scope" \
+     --description "Request is outside the project scope; see issue comment for durable reasoning" \
+     --color "eeeeee"
+   ```
+
+6. Remove other existing state labels when moving to a new state, but only after confirming the intended transition.
 
 ## State machine
 
@@ -61,14 +71,24 @@ Normal transitions:
 - `unlabeled` → `needs-triage`
 - `unlabeled` → `ready-for-agent` when the issue is already fully specified
 - `unlabeled` → `ready-for-human` when implementation requires human judgment or access
-- `unlabeled` → `wontfix` for spam, duplicates, invalid requests, or clearly out-of-scope work
+- `unlabeled` → `out of scope` for requests that clearly cross a project boundary
+- `unlabeled` → `wontfix` for valid or in-scope issues that will not be actioned
 - `needs-triage` → `needs-info`
 - `needs-triage` → `ready-for-agent`
 - `needs-triage` → `ready-for-human`
+- `needs-triage` → `out of scope`
 - `needs-triage` → `wontfix`
 - `needs-info` → `needs-triage` after reporter activity answers the outstanding questions
 
 The maintainer can override directly. Flag unusual transitions, explain the risk, and ask before applying them unless the user explicitly instructed the override.
+
+## `out of scope` vs `wontfix`
+
+Use **`out of scope`** when the request crosses a durable project boundary and the reasoning should guide future similar requests. This is the GitHub-native replacement for Matt's local `.out-of-scope/*.md` knowledge base.
+
+Use **`wontfix`** when the issue may be valid or in scope, but this specific issue will not be actioned — for example because the report is invalid, already solved, duplicate enough to close, or not worth pursuing.
+
+If unsure, recommend one and explain the tradeoff before applying labels.
 
 ## Invocation examples
 
@@ -78,7 +98,8 @@ The maintainer may invoke `/pac-triage` with natural language, such as:
 - `triage #42`
 - `move #42 to ready-for-agent`
 - `what is ready for agents to pick up?`
-- `close #42 as wontfix because this is outside the project scope`
+- `close #42 as out of scope because this crosses the package boundary`
+- `close #43 as wontfix because the issue is valid but not worth actioning`
 
 ## Workflow: show what needs attention
 
@@ -100,7 +121,8 @@ Before recommending anything:
 - Parse prior triage notes, agent briefs, PRD comments, and ADR comments so resolved decisions are not re-asked.
 - If the issue body has `## PRDs` or `## Decisions`, follow those links first. Prefer the newest linked PRD comment that contains `<!-- pac:prd -->`; treat linked `<!-- pac:adr -->` comments as constraints.
 - Explore the codebase enough to understand the domain, relevant interfaces, and existing behavior.
-- Do **not** read or write `.out-of-scope/` files. Rejected work is tracked on GitHub with the `wontfix` label and a structured comment.
+- Search GitHub issues with the `out of scope` label for similar prior scope decisions. Surface likely matches before recommending a new out-of-scope decision.
+- Do **not** read or write `.out-of-scope/` files. Scope-boundary decisions are tracked on GitHub with the `out of scope` label and a structured comment.
 
 ### 2. Recommend
 
@@ -137,6 +159,7 @@ After maintainer approval or an explicit state-change request:
 - **`ready-for-agent`** — post an agent brief using [AGENT-BRIEF.md](AGENT-BRIEF.md), then apply available category/state labels.
 - **`ready-for-human`** — post a brief with the same durable structure, but explain why human implementation is required.
 - **`needs-info`** — post triage notes with established facts and specific questions for the reporter.
+- **`out of scope`** — post a durable scope-boundary comment using [OUT-OF-SCOPE-COMMENT.md](OUT-OF-SCOPE-COMMENT.md), apply the `out of scope` label if available, then close when appropriate.
 - **`wontfix`** — post a structured comment using [WONTFIX-COMMENT.md](WONTFIX-COMMENT.md), apply the `wontfix` label if available, then close when appropriate.
 - **`needs-triage`** — apply the state label. Leave a comment only when there is partial progress worth preserving.
 

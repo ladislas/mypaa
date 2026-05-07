@@ -1,6 +1,6 @@
 # Writing Wontfix Comments
 
-Rejected work is tracked on GitHub, not in local `.out-of-scope/` files. When an issue moves to `wontfix`, apply the `wontfix` label when it exists and post a structured comment that preserves the decision on the issue.
+Use `wontfix` for valid or in-scope issues that will not be actioned. Use [OUT-OF-SCOPE-COMMENT.md](OUT-OF-SCOPE-COMMENT.md) instead when the request crosses a durable project boundary and should become reusable scope guidance.
 
 Every wontfix comment must start with the triage disclaimer:
 
@@ -11,8 +11,8 @@ Every wontfix comment must start with the triage disclaimer:
 ## Principles
 
 - Be clear and kind.
-- State whether the issue is out of scope, invalid, duplicate, already solved, or intentionally unsupported.
-- Preserve durable reasoning, not temporary prioritization.
+- State why this issue will not be actioned.
+- Preserve durable reasoning when useful, but do not turn every wontfix into a scope-boundary document.
 - Link related issues, PRDs, ADR comments, or docs when they explain the decision.
 - Do not create or update `.out-of-scope/` files.
 
@@ -27,16 +27,16 @@ Every wontfix comment must start with the triage disclaimer:
 **Category:** bug / enhancement / question / duplicate / invalid
 
 **Decision:**
-Short statement of what will not be actioned.
+Short statement of what will not be actioned for this issue.
 
 **Reasoning:**
-Durable explanation of why this is not being pursued.
+Explanation of why this issue is not being pursued.
 
 **Related context:**
 - #123 — related issue, PRD, ADR, or duplicate
 
 **Future reconsideration:**
-What would need to change for this to be reconsidered, or `None expected` when the decision is final.
+What would need to change for this specific issue to be reconsidered, or `None expected` when the decision is final.
 ```
 
 Omit `Related context` only when there is nothing useful to link.
