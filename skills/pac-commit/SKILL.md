@@ -35,6 +35,33 @@ Use this skill whenever the user asks to create commits directly in normal conve
 - Keep summaries concise, imperative, and without a trailing period.
 - If a commit could fit multiple categories, choose the emoji and type that best reflect the primary impact of the change rather than the implementation detail.
 - Use a body when needed to explain why the change exists, tradeoffs, issue references, or migration notes instead of repeating the diff.
+- Never put escaped newline sequences such as `\n` or `\n\n` inside quoted `git commit -m` arguments. Git stores those backslash sequences literally instead of turning them into blank lines.
+- For multiline commit messages, use multiple `-m` flags:
+
+  ```bash
+  git commit \
+    -m "✨ feat(scope): Summary" \
+    -m "Body paragraph." \
+    -m "Verification: npm test" \
+    -m "closes #123"
+  ```
+
+  Or write the message to a temporary file and pass it with `-F`:
+
+  ```bash
+  cat > /tmp/commit-message.txt <<'EOF_COMMIT'
+  ✨ feat(scope): Summary
+
+  Body paragraph.
+
+  Verification: npm test
+
+  closes #123
+  EOF_COMMIT
+
+  git commit -F /tmp/commit-message.txt
+  ```
+
 - If the conversation explicitly ties the work to a GitHub issue (for example `work on this issue https://github.com/<org>/<repo>/issues/123` or `fix #123`), include `closes #123` in the commit body of the commit that is intended to close that issue when merged. Do not guess issue numbers.
 - Do not add sign-offs.
 - Commit during implementation when a meaningful task group or work slice is complete and verified; do not wait until the very end.
