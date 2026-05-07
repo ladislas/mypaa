@@ -1,11 +1,11 @@
 # Writing Out-of-Scope Comments
 
-Out-of-scope decisions are GitHub-native scope-boundary records. They replace Matt's local `.out-of-scope/*.md` knowledge base with issue comments plus the `out of scope` label.
+Out-of-scope decisions are GitHub-native scope-boundary records. They replace Matt's local `.out-of-scope/*.md` knowledge base with issue comments plus the `pac:out_of_scope` label.
 
 Use this outcome when the request crosses a durable project boundary. This is different from `wontfix`:
 
-- **`out of scope`** — the request does not belong in the project; future similar requests should usually get the same answer unless scope changes.
-- **`wontfix`** — the request may be in scope or valid, but this specific issue will not be actioned.
+- **`pac:out_of_scope`** — the request does not belong in the project; future similar requests should usually get the same answer unless scope changes.
+- **`pac:wontfix`** — the request may be in scope or valid, but this specific issue will not be actioned.
 
 Every out-of-scope comment must start with the machine-readable marker and triage disclaimer:
 
@@ -32,7 +32,7 @@ Every out-of-scope comment must start with the machine-readable marker and triag
 ## Out-of-Scope Decision
 
 **Outcome:** out of scope
-**Label:** `out of scope`
+**Label:** `pac:out_of_scope`
 **Request:** one-sentence summary of what was requested
 
 **Decision:**

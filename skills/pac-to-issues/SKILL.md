@@ -83,7 +83,7 @@ gh issue create \
 
 Use the issue body template below.
 
-Apply the `hitl` or `afk` label only if it already exists in the repository. Create the issue first, then add the label conditionally:
+Apply the `pac:hitl` or `pac:afk` label only if it already exists in the repository. Create the issue first, then add the label conditionally:
 
 ```bash
 issue_url=$(gh issue create \
@@ -92,16 +92,16 @@ issue_url=$(gh issue create \
   --body-file <temp-file>)
 
 issue_number=${issue_url##*/}
-label_name="hitl"   # or "afk"
+label_name="pac:hitl"   # or "pac:afk"
 
 if gh label list --repo <owner/repo> --json name --jq '.[].name' | grep -Fxq "$label_name"; then
   gh issue edit "$issue_number" --repo <owner/repo> --add-label "$label_name"
 else
-  echo "Warning: label $label_name does not exist in <owner/repo>; skipping label"
+  echo "Warning: expected pac workflow label is missing: $label_name; run /pac-setup-workflows; skipping label"
 fi
 ```
 
-If the label does not exist, warn the user and skip it — do not fail the run.
+If the label does not exist, warn the user to run `/pac-setup-workflows` and skip it — do not fail the run.
 
 #### 5b. Wire GraphQL relationships
 
@@ -195,5 +195,5 @@ Or: None — can start immediately.
 - Create issues in dependency order (blockers first) so issue numbers are real when referenced.
 - Do not close or modify the parent issue beyond adding `## Tasks`.
 - Surface `gh` and GraphQL errors clearly instead of paraphrasing them away.
-- If a `hitl` or `afk` label does not exist in the repository, warn and skip — do not fail the run.
+- If a `pac:hitl` or `pac:afk` label does not exist in the repository, warn the user to run `/pac-setup-workflows` and skip — do not fail the run.
 - Use a temp file for issue bodies to avoid shell-escaping issues.

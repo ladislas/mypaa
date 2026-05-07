@@ -29,7 +29,7 @@ Only include these when they add genuine value. Most ADRs will not need them.
 
 After posting the ADR comment:
 
-1. Add issue label `adr` if missing.
+1. Add issue label `pac:adr` if it exists. If it is missing, warn clearly and tell the user to run `/pac-setup-workflows`; do not create labels from this workflow.
 2. Update or create a `## Decisions` section in the issue body.
 3. Add a bullet linking to the new ADR comment.
 

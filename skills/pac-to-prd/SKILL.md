@@ -120,7 +120,7 @@ Then:
 - create a **new** PRD iteration comment each run
 - do **not** edit the prior PRD comment in place
 - update or create `## PRDs` in the issue body with a link to the new comment
-- add or keep the `prd` label only when that label already exists in the target repository
+- add or keep the `pac:prd` label only when that label already exists in the target repository
 - never create missing labels automatically
 
 ### `create-issue`
@@ -136,15 +136,15 @@ Then:
 
 - create a new GitHub issue whose title is a concise version of the PRD title and whose **body is the PRD itself**
 - do **not** create a duplicate PRD comment
-- add `ready-for-agent` and `prd` only when those labels already exist in the target repository
+- add `pac:ready_for_agent` and `pac:prd` only when those labels already exist in the target repository
 - never create missing labels automatically
 
 ## GitHub safety rules
 
 - Surface `gh` failures plainly.
-- If labels are missing, skip them without turning that into a blocker.
+- If expected pac workflow labels are missing, warn clearly, skip them without turning that into a blocker, and tell the user to run the repo-local `/pac-setup-workflows` command.
 - Keep GitHub publication explicit and non-invasive.
-- Do not reference external setup skills.
+- Do not reference external setup skills or ad hoc setup mechanisms; `/pac-setup-workflows` is the canonical pac label setup command.
 
 ## When to stop and redirect
 

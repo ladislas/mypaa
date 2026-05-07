@@ -54,7 +54,8 @@ When the user wants an ADR:
 - create **one GitHub comment per decision**
 - use [`ADR-FORMAT.md`](./ADR-FORMAT.md)
 - prepend hidden marker `<!-- pac:adr -->`
-- add issue label `adr`
+- add issue label `pac:adr` when that label already exists
+- never create missing labels automatically; if `pac:adr` is missing, warn clearly and tell the user to run `/pac-setup-workflows`
 - update or create `## Decisions` in the issue body with a link to the ADR comment
 
 If several important decisions exist, create several ADR comments. Do not keep one mega-comment.
@@ -66,8 +67,8 @@ When the work needs more planning than immediate implementation, offer a PRD com
 - use [`PRD-FORMAT.md`](./PRD-FORMAT.md) for the PRD body
 - create one GitHub comment per PRD iteration
 - prepend hidden marker `<!-- pac:prd -->`
-- add or keep issue label `prd` when that label already exists
-- never create missing labels automatically
+- add or keep issue label `pac:prd` when that label already exists
+- never create missing labels automatically; if `pac:prd` is missing, warn clearly and tell the user to run `/pac-setup-workflows`
 - update or create `## PRDs` in the issue body with a link to the PRD comment
 
 ### `CONTEXT.md`
