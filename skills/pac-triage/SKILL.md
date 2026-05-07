@@ -121,8 +121,8 @@ Before recommending anything:
 - Parse prior triage notes, agent briefs, PRD comments, and ADR comments so resolved decisions are not re-asked.
 - If the issue body has `## PRDs` or `## Decisions`, follow those links first. Prefer the newest linked PRD comment that contains `<!-- pac:prd -->`; treat linked `<!-- pac:adr -->` comments as constraints.
 - Explore the codebase enough to understand the domain, relevant interfaces, and existing behavior.
-- Search GitHub issues with the `out of scope` label for similar prior scope decisions. Surface likely matches before recommending a new out-of-scope decision.
-- Do **not** read or write `.out-of-scope/` files. Scope-boundary decisions are tracked on GitHub with the `out of scope` label and a structured comment.
+- Search GitHub issues with the `out of scope` label for similar prior scope decisions. Prefer comments containing `<!-- pac:out-of-scope -->`; fall back to comments with `## Out-of-Scope Decision`, then to issue body/comments if no structured artifact exists. Surface likely matches before recommending a new out-of-scope decision.
+- Do **not** read or write `.out-of-scope/` files. Scope-boundary decisions are tracked on GitHub with the `out of scope` label and a structured `<!-- pac:out-of-scope -->` comment.
 
 ### 2. Recommend
 
