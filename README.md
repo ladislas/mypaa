@@ -50,6 +50,7 @@ For readability, the skill table below drops the `pac-` prefix in the display la
 | --- | --- |
 | [`changelog`](skills/pac-changelog/SKILL.md) | Update `CHANGELOG.md` for notable changes and prepare release sections on request |
 | [`commit`](skills/pac-commit/SKILL.md) | Create, split, or plan commits that follow this repo's branch, staging, and gitmoji workflow |
+| [`diagnose`](skills/pac-diagnose/SKILL.md) | Diagnose bugs and performance regressions with a disciplined feedback-loop workflow |
 | [`github`](skills/pac-github/SKILL.md) | Use the `gh` CLI for issues, PRs, workflow runs, and GitHub API queries |
 | [`github-issue-create`](skills/pac-github-issue-create/SKILL.md) | Create well-formed GitHub issues from inside the current repository |
 | [`grill-with-docs`](skills/pac-grill-with-docs/SKILL.md) | Grill issue-backed work, then persist durable outcomes to GitHub issue comments and sparing local context |
@@ -63,6 +64,7 @@ For readability, the skill table below drops the `pac-` prefix in the display la
 | [`pi-prompt`](skills/pac-pi-prompt/SKILL.md) | Author or update prompt templates under `prompts/` |
 | [`pi-skill`](skills/pac-pi-skill/SKILL.md) | Create, rename, or refactor repo-local skills under `skills/` |
 | [`review`](skills/pac-review/SKILL.md) | Review code changes using the repo's review rubric |
+| [`triage`](skills/pac-triage/SKILL.md) | Triage GitHub issues through mypac's label-based issue workflow |
 | [`uv`](skills/pac-uv/SKILL.md) | Prefer `uv` over `pip`, `python`, and `venv` workflows |
 
 ### Prompts
@@ -71,8 +73,11 @@ For readability, the skill table below drops the `pac-` prefix in the display la
 | --- | --- |
 | [`/pac-hello-world`](prompts/pac-hello-world.md) | Quick validation prompt to confirm the package is loaded |
 | [`/pac-lwot`](prompts/pac-lwot.md) | "Let's work on that" — turn a note, issue, PR, todo, or URL into a concrete plan and next steps |
+| [`/pac-zoom-out`](prompts/pac-zoom-out.md) | Zoom out from a code area and map relevant modules, callers, and system fit |
 | [`/pac-ldit`](prompts/pac-ldit.md) | "Let's do it" — confirm and proceed with already-planned work |
+| [`/pac-diagnose`](prompts/pac-diagnose.md) | Diagnose a bug or performance regression with a disciplined feedback-loop workflow |
 | [`/pac-grill-with-docs`](prompts/pac-grill-with-docs.md) | Grill issue-backed work and persist durable outcomes to GitHub issue notes and sparing local context |
+| [`/pac-triage`](prompts/pac-triage.md) | Triage GitHub issues through mypac's label-based issue workflow |
 | [`/pac-improve-architecture`](prompts/pac-improve-architecture.md) | Review a codebase for deepening opportunities, then grill a chosen architecture candidate |
 | [`/pac-propose`](prompts/pac-propose.md) | Create a new OpenSpec change proposal in one step |
 | [`/pac-apply`](prompts/pac-apply.md) | Implement tasks from an OpenSpec change |
